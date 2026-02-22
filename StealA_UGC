@@ -1,1 +1,139 @@
-sjj
+
+
+
+
+if getgenv().MyScriptAlreadyExecuted then return end
+getgenv().MyScriptAlreadyExecuted = true
+
+--===[ QueueOnTeleport Loader ]===--
+local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
+local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/StealA_UGC"
+
+pcall(function()
+    if QueueOnTeleport then
+        QueueOnTeleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    end
+end)
+
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+-- Rejoin khi bị kick hoặc lỗi (Áp dụng cho mọi PlaceId)
+GuiService.ErrorMessageChanged:Connect(function()
+    task.wait()
+    TeleportService:Teleport(game.PlaceId, lp)
+end)
+
+-- ==========================================
+-- 2. LOGIC CHỈ CHẠY TẠI PLACEID 18182048722
+-- ==========================================
+
+if game.PlaceId == 18182048722 then
+    -- Khai báo Service cần thiết cho logic chính
+    local TweenService = game:GetService("TweenService")
+    local VirtualUser = game:GetService("VirtualUser")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local CoreGui = game:GetService("CoreGui")
+    local PlayerGui = lp:WaitForChild("PlayerGui")
+
+    -- [LOGIC 1]: ANTI-AFK (KẾT HỢP CẢ 2 CÁCH CỦA BẠN)
+    lp.Idled:Connect(function()
+        -- Cách từ code 1
+        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(0.1)
+        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        
+        -- Cách từ code 2
+        VirtualInputManager:ConformButtonPress(Enum.UserInputType.MouseButton2)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+    end)
+
+    -- [LOGIC 2]: DỌN DẸP UI & AUTO CLICK BUBBLE
+    -- Chỉ xóa UI tại PlaceId này
+    for _, v in ipairs(PlayerGui:GetChildren()) do 
+        if v:IsA("ScreenGui") and v.Name ~= "PointCircles" then 
+            v:Destroy() 
+        end 
+    end 
+
+    local s = Instance.new("ScreenGui", CoreGui)
+    local t = Instance.new("TextLabel", s)
+    t.Size = UDim2.new(1, 0, 0, 20)
+    t.Position = UDim2.new(0, 0, 1, -20)
+    t.BackgroundTransparency = 1 
+    t.TextColor3 = Color3.new(1, 1, 1)
+    t.TextSize = 14 
+
+    task.spawn(function()
+        while task.wait(0.1) do
+            pcall(function()
+                GuiService:CloseInspectMenu()
+                local c = PlayerGui:FindFirstChild("PointCircles")
+                if c then 
+                    local b = c:FindFirstChild("Button")
+                    if b and b.Visible then 
+                        local p = b.AbsolutePosition 
+                        local z = b.AbsoluteSize 
+                        local x, y = p.X + z.X / 2, p.Y + z.Y / 2 + 58 
+                        t.Text = "Point: " .. (b:FindFirstChildWhichIsA("TextLabel", true) and b:FindFirstChildWhichIsA("TextLabel", true).Text or b.Name)
+                        GuiService.SelectedObject = b 
+                        VirtualInputManager:SendKeyEvent(true, 13, false, game)
+                        task.wait()
+                        VirtualInputManager:SendKeyEvent(false, 13, false, game)
+                        VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
+                        task.wait()
+                        VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
+                        GuiService.SelectedObject = nil 
+                    else 
+                        t.Text = "No Button"
+                    end 
+                else 
+                    t.Text = "No Gui"
+                end 
+            end)
+        end
+    end)
+
+    -- [LOGIC 3]: HÀM TWEEN & VÒNG LẶP ROOMS
+    local function moveTo(target)
+        if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = lp.Character.HumanoidRootPart
+        local dist = (hrp.Position - target.Position).Magnitude
+        local info = TweenInfo.new(dist/100, Enum.EasingStyle.Linear)
+        local tween = TweenService:Create(hrp, info, {CFrame = target.CFrame})
+        tween:Play()
+        tween.Completed:Wait()
+    end
+
+    task.spawn(function()
+        -- Fix lỗi đỏ: Đợi RoomsGenerated xuất hiện thay vì gọi trực tiếp
+        local roomsFolder = workspace:WaitForChild("RoomsGenerated", 60)
+        
+        for i = 1, 200 do
+            local roomIdx = tostring(i)
+            local room = roomsFolder:FindFirstChild(roomIdx)
+            
+            -- Nếu chưa có phòng thì đợi (Logic nguyên bản nhưng an toàn hơn)
+            if not room then
+                repeat task.wait(1) room = roomsFolder:FindFirstChild(roomIdx) until room
+            end
+            
+            if room and room:FindFirstChild("Build") and room.Build:FindFirstChild("Checkpoint") then
+                moveTo(room.Build.Checkpoint)
+                print("Đã tới Checkpoint: " .. i)
+                
+                if i < 200 then
+                    task.wait(6) -- Nghỉ 6s
+                else
+                    print("Đạt 200! Đang Rejoin...")
+                    TeleportService:Teleport(game.PlaceId, lp)
+                end
+            end
+        end
+    end)
+end
