@@ -1,0 +1,79 @@
+if getgenv().MyScriptAlreadyExecuted then return end
+getgenv().MyScriptAlreadyExecuted = true
+
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local lp = Players.LocalPlayer
+
+-- Tự động Rejoin
+GuiService.ErrorMessageChanged:Connect(function()
+    task.wait()
+    TeleportService:Teleport(game.PlaceId, lp)
+end)
+
+-- [LOGIC 1]: ANTI-AFK
+lp.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- [LOGIC 2]: AUTO CLICK BUBBLE (FIXED: Chống click lan tuyệt đối)
+task.spawn(function()
+    while task.wait(0.1) do
+        pcall(function()
+            local bubbleGui = lp.PlayerGui:FindFirstChild("FamePointBubbleGUI")
+            local bubble = bubbleGui and bubbleGui.BubbleArea:FindFirstChild("BubbleTemplate")
+
+            if bubble and bubble.Visible and bubble.AbsoluteSize.X > 0 then
+                -- Ép tiêu điểm vào đúng Bubble, không cho phép chọn cái khác
+                GuiService.SelectedObject = bubble
+                
+                -- Giả lập phím Enter/Select trực tiếp trên đối tượng được chọn
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                task.wait()
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                
+                -- Reset tiêu điểm sau khi click
+                GuiService.SelectedObject = nil
+            end
+        end)
+    end
+end)
+
+-- [LOGIC 3]: AUTO RUN DANCE (5s)
+task.spawn(function()
+    local runDance = ReplicatedStorage:WaitForChild("ClientToServer"):WaitForChild("RunDance")
+    while task.wait(5) do
+        pcall(function()
+            runDance:FireServer()
+        end)
+    end
+end)
+
+-- [LOGIC 4]: AUTO SPIN (5s)
+task.spawn(function()
+    local spinTry = ReplicatedStorage:WaitForChild("ClientToServer"):WaitForChild("SpinTry")
+    while task.wait(5) do
+        pcall(function()
+            spinTry:InvokeServer()
+        end)
+    end
+end)
+
+-- [LOGIC 5]: AUTO DAILY REWARD (Loop từ 1 đến 28)
+task.spawn(function()
+    local dailyRemote = ReplicatedStorage:WaitForChild("ClientToServer"):WaitForChild("DailyRewardClaim")
+    while true do
+        for i = 1, 28 do
+            pcall(function()
+                dailyRemote:FireServer("DailyBonus", tostring(i))
+            end)
+            task.wait(0.5) -- Nghỉ ngắn giữa các lần gửi để tránh spam
+        end
+        task.wait(3600) -- Kiểm tra lại mỗi tiếng một lần
+    end
+end)
