@@ -5,7 +5,7 @@ getgenv().MyScriptAlreadyExecuted = true
 --===[ QueueOnTeleport Loader ]===--
 -- Giúp script tự động chạy lại sau khi chuyển server hoặc rejoin
 local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
-local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/StealA_UGC"
+local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/cheapoutfitideas"
 
 pcall(function()
     if QueueOnTeleport then
@@ -20,14 +20,14 @@ local lp = Players.LocalPlayer
 
 -- Rejoin khi bị kick hoặc lỗi mạng
 GuiService.ErrorMessageChanged:Connect(function()
-    task.wait(1)
+    task.wait()
     TeleportService:Teleport(game.PlaceId, lp)
 end)
 
 -- ==========================================
 -- LOGIC CHÍNH (CHỈ CHẠY TẠI PLACEID CỤ THỂ)
 -- ==========================================
-if game.PlaceId == 18182048722 then
+if game.PlaceId == 119299251565094 then
     local VirtualUser = game:GetService("VirtualUser")
     local VirtualInputManager = game:GetService("VirtualInputManager")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
