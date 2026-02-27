@@ -1,1 +1,61 @@
-ssu
+if getgenv().MyScriptAlreadyExecuted then return end
+getgenv().MyScriptAlreadyExecuted = true
+
+--===[ QueueOnTeleport Loader ]===--
+local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
+local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/IdlePointForUGC"
+
+pcall(function()
+    if QueueOnTeleport then
+        QueueOnTeleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    end
+end)
+
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+-- Rejoin khi bị kick hoặc lỗi (Áp dụng cho mọi PlaceId)
+GuiService.ErrorMessageChanged:Connect(function()
+    task.wait()
+    TeleportService:Teleport(game.PlaceId, lp)
+end)
+
+
+local player = game:GetService("Players").LocalPlayer
+local targetPos = Vector3.new(-24, 1, -46)
+
+-- 1. ANTI-AFK (Giữ nguyên)
+player.Idled:Connect(function()
+    local VirtualUser = game:GetService("VirtualUser")
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- 2. ANTI-KICK (Giữ nguyên)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if self == player and (method == "Kick" or method == "kick") then
+        return nil 
+    end
+    return oldNamecall(self, ...)
+end)
+
+-- 3. AUTO WALK LOOP (Tự động đi bộ đến điểm chỉ định)
+task.spawn(function()
+    while true do
+        pcall(function()
+            local character = player.Character
+            if character and character:FindFirstChild("Humanoid") then
+                local humanoid = character.Humanoid
+                -- Đảm bảo WalkSpeed là 16 để trông như người chơi bình thường
+                humanoid.WalkSpeed = 16 
+                -- Lệnh cho Humanoid di chuyển đến tọa độ
+                humanoid:MoveTo(targetPos)
+            end
+        end)
+        task.wait(0) -- Kiểm tra lại mỗi 0.5s để đảm bảo nhân vật không đi lệch hướng
+    end
+end)
