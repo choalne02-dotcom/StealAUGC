@@ -1,1 +1,106 @@
+if getgenv().MyScriptAlreadyExecuted then return end
+getgenv().MyScriptAlreadyExecuted = true
 
+--===[ QueueOnTeleport Loader ]===--
+local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
+local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/gangnam"
+
+pcall(function()
+    if QueueOnTeleport then
+        QueueOnTeleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    end
+end)
+
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+-- Rejoin khi bị kick hoặc lỗi (Áp dụng cho mọi PlaceId)
+GuiService.ErrorMessageChanged:Connect(function()
+    task.wait()
+    TeleportService:Teleport(game.PlaceId, lp)
+end)
+
+
+--// Auto Farm + Smart Server Hop (Avoid same server)
+
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local player = Players.LocalPlayer
+
+local farming = false
+local serversVisited = {} -- store visited server IDs
+
+--================ GUI =================--
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoFarmGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0,160,0,40)
+button.Position = UDim2.new(0.5,-80,1,-60)
+button.BackgroundColor3 = Color3.fromRGB(30,30,30)
+button.TextColor3 = Color3.new(1,1,1)
+button.TextScaled = true
+button.Text = "Auto Farm: OFF"
+button.Parent = gui
+
+Instance.new("UICorner", button).CornerRadius = UDim.new(0,12)
+
+--================ AUTO FARM LOOP =================--
+task.spawn(function()
+    while true do
+        if farming then
+            local character = player.Character or player.CharacterAdded:Wait()
+            local hrp = character:WaitForChild("HumanoidRootPart")
+
+            for _, note in pairs(workspace.CoopMap.DiamondNotes:GetChildren()) do
+                local touchPart = note:FindFirstChild("TouchDetector")
+                if touchPart then
+                    firetouchinterest(hrp, touchPart, 0)
+                    task.wait(0.1)
+                    firetouchinterest(hrp, touchPart, 1)
+                end
+            end
+        end
+        task.wait(0.4)
+    end
+end)
+
+--================ AUTO ON AFTER 5 SEC =================--
+task.delay(5, function()
+    farming = true
+    button.Text = "Auto Farm: ON"
+    button.BackgroundColor3 = Color3.fromRGB(0,170,0)
+end)
+
+--================ SMART SERVER HOP AFTER 40 SEC =================--
+task.delay(40, function()
+    -- Add current server to visited list
+    local currentServer = game.JobId
+    table.insert(serversVisited, currentServer)
+
+    -- Fetch list of public servers
+    local placeId = game.PlaceId
+    local success, servers = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(
+            game:HttpGetAsync("https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100")
+        )
+    end)
+
+    if success and servers and servers.data then
+        for _, server in pairs(servers.data) do
+            if server.id and not table.find(serversVisited, server.id) and server.playing < server.maxPlayers then
+                -- Teleport to new server
+                TeleportService:TeleportToPlaceInstance(placeId, server.id, player)
+                break
+            end
+        end
+    else
+        -- fallback: teleport to any server
+        TeleportService:Teleport(placeId, player)
+    end
+end)
