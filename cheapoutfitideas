@@ -1,0 +1,59 @@
+-- Khai báo biến ngăn chạy trùng lặp
+if getgenv().MyScriptAlreadyExecuted then return end
+getgenv().MyScriptAlreadyExecuted = true
+
+--===[ QueueOnTeleport Loader ]===--
+-- Giúp script tự động chạy lại sau khi chuyển server hoặc rejoin
+local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
+local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/StealA_UGC"
+
+pcall(function()
+    if QueueOnTeleport then
+        QueueOnTeleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    end
+end)
+
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+-- Rejoin khi bị kick hoặc lỗi mạng
+GuiService.ErrorMessageChanged:Connect(function()
+    task.wait(1)
+    TeleportService:Teleport(game.PlaceId, lp)
+end)
+
+-- ==========================================
+-- LOGIC CHÍNH (CHỈ CHẠY TẠI PLACEID CỤ THỂ)
+-- ==========================================
+if game.PlaceId == 18182048722 then
+    local VirtualUser = game:GetService("VirtualUser")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+    -- [LOGIC 1]: ANTI-AFK 
+    -- Giúp nhân vật không bị văng khỏi game sau 20 phút treo máy
+    lp.Idled:Connect(function()
+        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(0.1)
+        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+    end)
+
+    -- [LOGIC MỚI]: AUTO CLAIM DAILY
+    -- Lặp lại mỗi 0.1 giây để nhận quà ngay khi có thể
+    task.spawn(function()
+        local dailyRemote = ReplicatedStorage:WaitForChild("Remotes", 10):WaitForChild("ClaimDaily", 10)
+        while task.wait(0.1) do
+            pcall(function()
+                dailyRemote:FireServer()
+            end)
+        end
+    end)
+    
+    print("Script đã tải: Anti-AFK và Auto Claim Daily đang chạy!")
+end
