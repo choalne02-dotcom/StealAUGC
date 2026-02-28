@@ -59,3 +59,20 @@ task.spawn(function()
         task.wait(0) -- Kiểm tra lại mỗi 0.5s để đảm bảo nhân vật không đi lệch hướng
     end
 end)
+
+-- 4. ANTI-SIT (Chống ngồi/nằm lên ghế)
+task.spawn(function()
+    while true do
+        pcall(function()
+            local character = player.Character
+            if character and character:FindFirstChild("Humanoid") then
+                local humanoid = character.Humanoid
+                if humanoid.Sit then
+                    humanoid.Sit = false
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+        task.wait(0.1)
+    end
+end)
