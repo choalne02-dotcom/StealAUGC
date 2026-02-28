@@ -1,5 +1,5 @@
 if getgenv().MyScriptAlreadyExecuted then return end
-getgenv().MyScriptAlreadyExecuted = true
+getgenv().MyScriptAlreadyExecuted = false
 
 --===[ QueueOnTeleport Loader ]===--
 local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
