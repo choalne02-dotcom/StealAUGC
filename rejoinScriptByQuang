@@ -1,48 +1,105 @@
---===[ QueueOnTeleport Loader Optimized ]===--
+--[[
+    --===[ QueueOnTeleport Loader + Anti-Kick + UI ]===--
+    Tính năng: Auto Load Script, Chống văng game, Chống AFK, Chống Kick, Thông báo UI.
+]]
+
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
+local GuiService = game:GetService("GuiService")
+local VirtualUser = game:GetService("VirtualUser")
+local CoreGui = game:GetService("CoreGui")
+
 local lp = Players.LocalPlayer
 local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/rejoinScriptByQuang"
 
--- 1. Hỗ trợ nhiều loại Executor khác nhau cho QueueOnTeleport
+-- 1. Hỗ trợ QueueOnTeleport (Chạy script sau khi đổi server)
 local queue_teleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
-
 if queue_teleport then
-    queue_teleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    pcall(function()
+        queue_teleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    end)
 end
 
--- 2. Anti-AFK (Cải tiến để tránh bị phát hiện)
+-- 2. Anti-AFK (Ngăn bị văng do treo máy)
 lp.Idled:Connect(function()
-    game:GetService("VirtualUser"):CaptureController()
-    game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- 3. Anti-Kick & Auto Reconnect (Chống văng game)
--- Xử lý khi có bảng thông báo lỗi (Server đóng, mất mạng, v.v.)
-game:GetService("GuiService").ErrorMessageChanged:Connect(function()
+-- 3. Chống văng game khi có lỗi Server/Mất mạng
+GuiService.ErrorMessageChanged:Connect(function()
     task.wait()
     TeleportService:Teleport(game.PlaceId, lp)
 end)
 
--- 4. Chống bị Admin/Server Kick (Anti-Kick)
--- Khi bị Kick, thay vì thoát game, nó sẽ tự động Teleport lại server khác
+-- 4. Anti-Kick (Chặn lệnh Kick từ Server và tự Reconnect)
 local oldMT = getrawmetatable(game)
 setreadonly(oldMT, false)
 local oldNamecall = oldMT.__namecall
 
 oldMT.__namecall = newcclosure(function(self, ...)
     local method = getnamecallmethod()
-    local args = {...}
-    
     if method == "Kick" or method == "kick" then
         task.spawn(function()
             TeleportService:Teleport(game.PlaceId, lp)
         end)
-        return nil -- Chặn lệnh Kick không cho thực thi
+        return nil
     end
-    
-    return oldNamecall(self, unpack(args))
+    return oldNamecall(self, unpack({...}))
 end)
 setreadonly(oldMT, true)
 
-print("Loader đã sẵn sàng - Anti-Kick & AFK Active")
+-- 5. Hàm tạo TextLabel thông báo giữa màn hình
+local function ShowStatus(text)
+    -- Xóa UI cũ nếu có
+    if CoreGui:FindFirstChild("NotifyStatus") then
+        CoreGui.NotifyStatus:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NotifyStatus"
+    screenGui.Parent = CoreGui
+    screenGui.IgnoreGuiInset = true
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 300, 0, 60)
+    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -30) -- Giữa màn hình
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    mainFrame.BackgroundTransparency = 0.2
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = mainFrame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(0, 170, 255)
+    stroke.Thickness = 2
+    stroke.Parent = mainFrame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 18
+    label.Font = Enum.Font.GothamBold
+    label.Parent = mainFrame
+
+    -- Hiệu ứng tắt dần sau 4 giây
+    task.delay(4, function()
+        for i = 0.2, 1, 0.1 do
+            mainFrame.BackgroundTransparency = i
+            label.TextTransparency = (i - 0.2) * 1.25
+            task.wait(0.05)
+        end
+        screenGui:Destroy()
+    end)
+end
+
+-- Kích hoạt thông báo
+ShowStatus("ĐÃ BẬT ANTI-KICK & REJOIN KHI VĂNG")
+
+-- Thực thi script chính lần đầu
+loadstring(game:HttpGet(SCRIPT_URL))()
