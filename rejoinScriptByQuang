@@ -95,6 +95,5 @@ GuiService.ErrorMessageChanged:Connect(function()
     TeleportService:Teleport(game.PlaceId, lp)
 end)
 
-task.spawn(function()
     pcall(function() loadstring(game:HttpGet(SCRIPT_URL))() end)
-end)
+
