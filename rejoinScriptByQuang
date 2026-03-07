@@ -10,6 +10,11 @@ local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
 local FILENAME = "S_Scripts_Config.json"
 
+-- Hàm kiểm tra môi trường executor (Delta/Fluxus/v.v)
+local is_file = isfile or function() return false end
+local read_file = readfile or function() return "" end
+local write_file = writefile or function() end
+
 local function LoadConfig()
     local default = {
         AntiAFK = true,
@@ -24,9 +29,10 @@ local function LoadConfig()
         RejoinSource = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/rejoinScriptByQuang",
         ExecuteThisScript = "https://pastefy.app/smxOpGnI/raw"
     }
-    if isfile(FILENAME) then
-        local success, decoded = pcall(HttpService.JSONDecode, HttpService, readfile(FILENAME))
-        if success then 
+    
+    if is_file(FILENAME) then
+        local success, decoded = pcall(HttpService.JSONDecode, HttpService, read_file(FILENAME))
+        if success and type(decoded) == "table" then 
             for k, v in pairs(decoded) do default[k] = v end
         end
     end
@@ -34,11 +40,16 @@ local function LoadConfig()
 end
 
 local function SaveConfig()
-    writefile(FILENAME, HttpService:JSONEncode(getgenv().Config))
+    pcall(function()
+        write_file(FILENAME, HttpService:JSONEncode(getgenv().Config))
+    end)
 end
 
 LoadConfig()
 
+----------------------------------------------------------------
+-- GIAO DIỆN (UI)
+----------------------------------------------------------------
 local function CreateUI()
     if CoreGui:FindFirstChild("S_ScriptUI") then CoreGui.S_ScriptUI:Destroy() end
     
@@ -46,19 +57,19 @@ local function CreateUI()
     sg.Name = "S_ScriptUI"
     
     local main = Instance.new("Frame", sg)
-    main.Size = UDim2.new(0, 250, 0, 450)
-    main.Position = UDim2.new(0, 20, 0.5, -225)
-    main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    main.Size = UDim2.new(0, 250, 0, 400)
+    main.Position = UDim2.new(0, 20, 0.5, -200)
+    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     main.BorderSizePixel = 0
     main.Active = true
     main.Draggable = true
 
     local scroll = Instance.new("ScrollingFrame", main)
-    scroll.Size = UDim2.new(1, -10, 1, -40)
-    scroll.Position = UDim2.new(0, 5, 0, 35)
+    scroll.Size = UDim2.new(1, -10, 1, -45)
+    scroll.Position = UDim2.new(0, 5, 0, 40)
     scroll.BackgroundTransparency = 1
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 600)
-    scroll.ScrollBarThickness = 4
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 650)
+    scroll.ScrollBarThickness = 3
 
     local list = Instance.new("UIListLayout", scroll)
     list.Padding = UDim.new(0, 5)
@@ -82,16 +93,17 @@ local function CreateUI()
 
     local function AddInput(label, configKey, isNumber)
         local lab = Instance.new("TextLabel", scroll)
-        lab.Size = UDim2.new(1, -10, 0, 15)
-        lab.Text = label
+        lab.Size = UDim2.new(1, -10, 0, 20)
+        lab.Text = "  " .. label
         lab.TextColor3 = Color3.fromRGB(200, 200, 200)
         lab.BackgroundTransparency = 1
-        lab.TextSize = 10
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.TextSize = 11
 
         local box = Instance.new("TextBox", scroll)
         box.Size = UDim2.new(1, -10, 0, 30)
         box.Text = tostring(getgenv().Config[configKey])
-        box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
         box.TextColor3 = Color3.fromRGB(255, 255, 255)
         box.ClearTextOnFocus = false
         
@@ -103,14 +115,13 @@ local function CreateUI()
         end)
     end
 
-    -- Title
     local t = Instance.new("TextLabel", main)
-    t.Size = UDim2.new(1, 0, 0, 30)
-    t.Text = "S-SCRIPTS MANAGER"
+    t.Size = UDim2.new(1, 0, 0, 35)
+    t.Text = "S-SCRIPTS V2 (FIXED)"
     t.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
     t.TextColor3 = Color3.fromRGB(255, 255, 255)
+    t.Font = Enum.Font.GothamBold
 
-    -- Controls
     AddToggle("Anti AFK", "AntiAFK")
     AddToggle("Auto Rejoin", "AutoRejoin")
     AddToggle("Auto Jump", "AutoJump")
@@ -122,22 +133,29 @@ local function CreateUI()
     AddInput("TP Delay (Seconds)", "TeleportDelay", true)
     
     local setPos = Instance.new("TextButton", scroll)
-    setPos.Size = UDim2.new(1, -10, 0, 30)
-    setPos.Text = "SAVE CURRENT POS AS TP"
+    setPos.Size = UDim2.new(1, -10, 0, 35)
+    setPos.Text = "SAVE CURRENT POS"
     setPos.BackgroundColor3 = Color3.fromRGB(52, 152, 219)
+    setPos.Font = Enum.Font.GothamBold
     setPos.MouseButton1Click:Connect(function()
-        local pos = lp.Character.HumanoidRootPart.Position
-        getgenv().Config.TeleportPoint = {x = pos.X, y = pos.Y, z = pos.Z}
-        SaveConfig()
+        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            local pos = lp.Character.HumanoidRootPart.Position
+            getgenv().Config.TeleportPoint = {x = pos.X, y = pos.Y, z = pos.Z}
+            SaveConfig()
+        end
     end)
 
-    AddInput("Rejoin Script URL", "RejoinSource", false)
+    AddInput("Rejoin Source URL", "RejoinSource", false)
     AddInput("Execute Script URL", "ExecuteThisScript", false)
 end
 
 CreateUI()
 
--- LOGIC FUNCTIONS
+----------------------------------------------------------------
+-- HỆ THỐNG LOGIC
+----------------------------------------------------------------
+
+-- Tự rejoin khi bị kick hoặc lỗi
 if getgenv().Config.AutoRejoin then
     local queue_teleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
     if queue_teleport then
@@ -147,11 +165,12 @@ if getgenv().Config.AutoRejoin then
         end)
     end
     GuiService.ErrorMessageChanged:Connect(function()
-        task.wait(0.5)
+        task.wait(1)
         TeleportService:Teleport(game.PlaceId, lp)
     end)
 end
 
+-- Chống AFK
 lp.Idled:Connect(function()
     if getgenv().Config.AntiAFK then
         VirtualUser:CaptureController()
@@ -159,6 +178,7 @@ lp.Idled:Connect(function()
     end
 end)
 
+-- Vòng lặp chính xử lý nhân vật
 local function handleCharacterLogic()
     local char = lp.Character
     if char and char:FindFirstChildOfClass("Humanoid") then
@@ -195,94 +215,13 @@ end
 if _G.MainLoop then _G.MainLoop:Disconnect() end
 _G.MainLoop = RunService.RenderStepped:Connect(handleCharacterLogic)
 
+-- Vòng lặp Teleport
 task.spawn(function()
-    while task.wait() do
+    while true do
         if getgenv().Config.TeleportLoop and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
             local p = getgenv().Config.TeleportPoint
             lp.Character.HumanoidRootPart.CFrame = CFrame.new(p.x, p.y, p.z)
-            task.wait(getgenv().Config.TeleportDelay or 0.5)
         end
+        task.wait(getgenv().Config.TeleportDelay or 0.5)
     end
-end)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Active = false -- Không chặn chuột
-    mainFrame.Parent = screenGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = mainFrame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(0, 170, 255)
-    stroke.Thickness = 1.5
-    stroke.Parent = mainFrame
-
-    local icon = Instance.new("ImageLabel")
-    icon.Size = UDim2.new(0, 48, 0, 48)
-    icon.Position = UDim2.new(0, 12, 0.5, -24)
-    icon.BackgroundTransparency = 1
-    icon.Image = "rbxassetid://6023426926"
-    icon.ImageColor3 = Color3.fromRGB(0, 170, 255)
-    icon.Parent = mainFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -80, 0, 20)
-    title.Position = UDim2.new(0, 72, 0, 15)
-    title.BackgroundTransparency = 1
-    title.Text = titleText:upper()
-    title.TextColor3 = Color3.fromRGB(180, 180, 180)
-    title.TextSize = 12
-    title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = mainFrame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -80, 0, 30)
-    label.Position = UDim2.new(0, 72, 0, 32)
-    label.BackgroundTransparency = 1
-    label.Text = descText
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 14
-    label.Font = Enum.Font.GothamMedium
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextWrapped = true
-    label.Parent = mainFrame
-
-    -- Hiệu ứng trượt
-    TweenService:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Position = UDim2.new(1, -320, 1, -100)
-    }):Play()
-
-    task.delay(4, function()
-        if mainFrame then
-            local t = TweenService:Create(mainFrame, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Position = UDim2.new(1, 20, 1, -100)
-            })
-            t:Play()
-            t.Completed:Connect(function() screenGui:Destroy() end)
-        end
-    end)
-end
-
--- Hiển thị Badge mới
-ShowBadgeStatus("Hệ Thống", "Đã dọn dẹp UI cũ và bật Anti-Kick.")
-
-----------------------------------------------------------------
--- 3. LOGIC HỆ THỐNG
-----------------------------------------------------------------
-local queue_teleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
-if queue_teleport then
-    pcall(function() queue_teleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()") end)
-end
-
-if lp then
-    lp.Idled:Connect(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end)
-end
-
-GuiService.ErrorMessageChanged:Connect(function()
-    task.wait()
-    TeleportService:Teleport(game.PlaceId, lp)
 end)
