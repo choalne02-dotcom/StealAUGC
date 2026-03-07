@@ -9,7 +9,7 @@ local RunService = game:GetService("RunService")
 
 local lp = Players.LocalPlayer
 local FILENAME = "S_Scripts_Config.json"
-local USER_FILENAME = "S_Scripts_" .. lp.UserId .. ".json" -- File riêng cho User
+local USER_FILENAME = "S_Scripts_" .. lp.UserId .. ".json"
 
 local is_file = isfile or function() return false end
 local read_file = readfile or function() return "" end
@@ -32,23 +32,19 @@ local function LoadConfig()
         AutoHopDelay = 300,
         AutoRejoinTimer = false,
         AutoRejoinTimerDelay = 300,
-        -- MỚI:
         LoopExecute = false,
         LoopExecuteDelay = 5,
         UseUserOnly = false
     }
     
-    -- Chọn file để đọc
-    local targetFile = FILENAME
+    local target = FILENAME
     if is_file(FILENAME) then
-        local _, tmp = pcall(HttpService.JSONDecode, HttpService, read_file(FILENAME))
-        if tmp and tmp.UseUserOnly and is_file(USER_FILENAME) then
-            targetFile = USER_FILENAME
-        end
+        local s, decoded = pcall(HttpService.JSONDecode, HttpService, read_file(FILENAME))
+        if s and decoded.UseUserOnly and is_file(USER_FILENAME) then target = USER_FILENAME end
     end
 
-    if is_file(targetFile) then
-        local success, decoded = pcall(HttpService.JSONDecode, HttpService, read_file(targetFile))
+    if is_file(target) then
+        local success, decoded = pcall(HttpService.JSONDecode, HttpService, read_file(target))
         if success and type(decoded) == "table" then 
             for k, v in pairs(decoded) do default[k] = v end
         end
@@ -58,14 +54,9 @@ end
 
 local function SaveConfig()
     pcall(function()
-        -- Luôn lưu UseUserOnly vào file chính để biết lần sau load file nào
-        local mainConfig = getgenv().Config
-        write_file(FILENAME, HttpService:JSONEncode(mainConfig))
-        
-        -- Nếu đang bật User Only, lưu thêm một bản riêng
-        if getgenv().Config.UseUserOnly then
-            write_file(USER_FILENAME, HttpService:JSONEncode(mainConfig))
-        end
+        local data = HttpService:JSONEncode(getgenv().Config)
+        write_file(FILENAME, data)
+        if getgenv().Config.UseUserOnly then write_file(USER_FILENAME, data) end
     end)
 end
 
@@ -88,56 +79,26 @@ local function HopServer()
 end
 
 ----------------------------------------------------------------
--- GIAO DIỆN (UI) CẬU TRÚC THEO YÊU CẦU
+-- GIAO DIỆN (UI) - THEO YÊU CẦU CỦA BẠN
 ----------------------------------------------------------------
 local function CreateUI()
     if CoreGui:FindFirstChild("S_ScriptUI") then CoreGui.S_ScriptUI:Destroy() end
-    
-    local sg = Instance.new("ScreenGui", CoreGui)
-    sg.Name = "S_ScriptUI"
-    
-    local main = Instance.new("Frame", sg)
-    main.Size = UDim2.new(0, 320, 0, 480) -- Tăng chiều cao nhẹ để đủ chỗ
-    main.Position = UDim2.new(0, 20, 0.5, -240)
-    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    main.Active = true
-    main.Draggable = true
-
-    local scroll = Instance.new("ScrollingFrame", main)
-    scroll.Size = UDim2.new(1, -10, 1, -45)
-    scroll.Position = UDim2.new(0, 5, 0, 45)
-    scroll.BackgroundTransparency = 1
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 700)
-    scroll.ScrollBarThickness = 3
-
-    local list = Instance.new("UIListLayout", scroll)
-    list.Padding = UDim.new(0, 8)
-
-    local t = Instance.new("TextLabel", main)
-    t.Size = UDim2.new(1, 0, 0, 40)
-    t.Text = "Support Script V1"
-    t.BackgroundColor3 = Color3.fromRGB(142, 68, 173)
-    t.TextColor3 = Color3.fromRGB(255, 255, 255)
-    t.Font = Enum.Font.GothamBold
+    local sg = Instance.new("ScreenGui", CoreGui); sg.Name = "S_ScriptUI"
+    local main = Instance.new("Frame", sg); main.Size = UDim2.new(0, 320, 0, 420); main.Position = UDim2.new(0, 20, 0.5, -210); main.BackgroundColor3 = Color3.fromRGB(30, 30, 30); main.Active = true; main.Draggable = true
+    local scroll = Instance.new("ScrollingFrame", main); scroll.Size = UDim2.new(1, -10, 1, -45); scroll.Position = UDim2.new(0, 5, 0, 45); scroll.BackgroundTransparency = 1; scroll.CanvasSize = UDim2.new(0, 0, 0, 700); scroll.ScrollBarThickness = 3
+    local list = Instance.new("UIListLayout", scroll); list.Padding = UDim.new(0, 8)
+    local t = Instance.new("TextLabel", main); t.Size = UDim2.new(1, 0, 0, 40); t.Text = "Support Script V1"; t.BackgroundColor3 = Color3.fromRGB(142, 68, 173); t.TextColor3 = Color3.fromRGB(255, 255, 255); t.Font = Enum.Font.GothamBold
 
     local function AddSimpleToggle(text, configKey)
-        local btn = Instance.new("TextButton", scroll)
-        btn.Size = UDim2.new(1, -10, 0, 30)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 11
+        local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(1, -10, 0, 30); btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
         local function UpdateBtn()
             btn.Text = text .. ": " .. (getgenv().Config[configKey] and "ON" or "OFF")
             btn.BackgroundColor3 = getgenv().Config[configKey] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
         end
-        btn.MouseButton1Click:Connect(function()
-            getgenv().Config[configKey] = not getgenv().Config[configKey]
-            SaveConfig()
-            UpdateBtn()
-        end)
+        btn.MouseButton1Click:Connect(function() getgenv().Config[configKey] = not getgenv().Config[configKey]; SaveConfig(); UpdateBtn() end)
         UpdateBtn()
     end
 
-    -- 1. CÁC TOGGLE CƠ BẢN
     AddSimpleToggle("Anti AFK", "AntiAFK")
     AddSimpleToggle("Auto Rejoin (Kick)", "AutoRejoin")
     AddSimpleToggle("Auto Jump", "AutoJump")
@@ -145,125 +106,74 @@ local function CreateUI()
     AddSimpleToggle("Fly Mode", "Fly")
     AddSimpleToggle("No Clip", "NoClip")
 
-    -- 2. HÀNG TELEPORT
-    local tpRow = Instance.new("Frame", scroll)
-    tpRow.Size = UDim2.new(1, -10, 0, 30)
-    tpRow.BackgroundTransparency = 1
-
-    local loopBtn = Instance.new("TextButton", tpRow)
-    loopBtn.Size = UDim2.new(0.4, -5, 1, 0)
-    loopBtn.Font = Enum.Font.GothamBold; loopBtn.TextSize = 10
-    local function UpdLoop()
-        loopBtn.Text = "TP Loop: " .. (getgenv().Config.TeleportLoop and "ON" or "OFF")
-        loopBtn.BackgroundColor3 = getgenv().Config.TeleportLoop and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-    end
-    loopBtn.MouseButton1Click:Connect(function() getgenv().Config.TeleportLoop = not getgenv().Config.TeleportLoop; SaveConfig(); UpdLoop() end)
-    UpdLoop()
-
-    local saveBtn = Instance.new("TextButton", tpRow)
-    saveBtn.Position = UDim2.new(0.4, 0, 0, 0)
-    saveBtn.Size = UDim2.new(0.4, -5, 1, 0)
-    saveBtn.BackgroundColor3 = Color3.fromRGB(52, 152, 219)
-    saveBtn.Text = "SAVE POS"
-    saveBtn.Font = Enum.Font.GothamBold; saveBtn.TextSize = 10
-    saveBtn.MouseButton1Click:Connect(function()
-        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-            local pos = lp.Character.HumanoidRootPart.Position
-            getgenv().Config.TeleportPoint = {x = pos.X, y = pos.Y, z = pos.Z}; SaveConfig()
-        end
-    end)
-
-    local tpBox = Instance.new("TextBox", tpRow)
-    tpBox.Position = UDim2.new(0.8, 0, 0, 0); tpBox.Size = UDim2.new(0.2, 0, 1, 0); tpBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); tpBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tpBox.Text = tostring(getgenv().Config.TeleportDelay)
+    -- TELEPORT ROW
+    local tpRow = Instance.new("Frame", scroll); tpRow.Size = UDim2.new(1, -10, 0, 30); tpRow.BackgroundTransparency = 1
+    local loopBtn = Instance.new("TextButton", tpRow); loopBtn.Size = UDim2.new(0.4, -5, 1, 0); loopBtn.Font = Enum.Font.GothamBold; loopBtn.TextSize = 10
+    local function UpdLoop() loopBtn.Text = "TP Loop: " .. (getgenv().Config.TeleportLoop and "ON" or "OFF"); loopBtn.BackgroundColor3 = getgenv().Config.TeleportLoop and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+    loopBtn.MouseButton1Click:Connect(function() getgenv().Config.TeleportLoop = not getgenv().Config.TeleportLoop; SaveConfig(); UpdLoop() end); UpdLoop()
+    local saveBtn = Instance.new("TextButton", tpRow); saveBtn.Position = UDim2.new(0.4, 0, 0, 0); saveBtn.Size = UDim2.new(0.4, -5, 1, 0); saveBtn.BackgroundColor3 = Color3.fromRGB(52, 152, 219); saveBtn.Text = "SAVE POS"; saveBtn.Font = Enum.Font.GothamBold; saveBtn.TextSize = 10
+    saveBtn.MouseButton1Click:Connect(function() if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then local pos = lp.Character.HumanoidRootPart.Position; getgenv().Config.TeleportPoint = {x = pos.X, y = pos.Y, z = pos.Z}; SaveConfig() end end)
+    local tpBox = Instance.new("TextBox", tpRow); tpBox.Position = UDim2.new(0.8, 0, 0, 0); tpBox.Size = UDim2.new(0.2, 0, 1, 0); tpBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); tpBox.TextColor3 = Color3.fromRGB(255, 255, 255); tpBox.Text = tostring(getgenv().Config.TeleportDelay)
     tpBox.FocusLost:Connect(function() getgenv().Config.TeleportDelay = tonumber(tpBox.Text) or 0.5; SaveConfig() end)
 
-    -- 3. AUTO HOP / REJOIN TIMER
     local function AddTimedRow(text, toggleKey, delayKey)
-        local row = Instance.new("Frame", scroll)
-        row.Size = UDim2.new(1, -10, 0, 30); row.BackgroundTransparency = 1
-        local btn = Instance.new("TextButton", row)
-        btn.Size = UDim2.new(0.75, -5, 1, 0); btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
-        local function Upd()
-            btn.Text = text .. ": " .. (getgenv().Config[toggleKey] and "ON" or "OFF")
-            btn.BackgroundColor3 = getgenv().Config[toggleKey] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-        end
-        btn.MouseButton1Click:Connect(function() getgenv().Config[toggleKey] = not getgenv().Config[toggleKey]; SaveConfig(); Upd() end)
-        Upd()
-        local box = Instance.new("TextBox", row)
-        box.Position = UDim2.new(0.75, 0, 0, 0); box.Size = UDim2.new(0.25, 0, 1, 0); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.TextColor3 = Color3.fromRGB(255, 255, 255)
-        box.Text = tostring(getgenv().Config[delayKey])
+        local row = Instance.new("Frame", scroll); row.Size = UDim2.new(1, -10, 0, 30); row.BackgroundTransparency = 1
+        local btn = Instance.new("TextButton", row); btn.Size = UDim2.new(0.75, -5, 1, 0); btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
+        local function Upd() btn.Text = text .. ": " .. (getgenv().Config[toggleKey] and "ON" or "OFF"); btn.BackgroundColor3 = getgenv().Config[toggleKey] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+        btn.MouseButton1Click:Connect(function() getgenv().Config[toggleKey] = not getgenv().Config[toggleKey]; SaveConfig(); Upd() end); Upd()
+        local box = Instance.new("TextBox", row); box.Position = UDim2.new(0.75, 0, 0, 0); box.Size = UDim2.new(0.25, 0, 1, 0); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Text = tostring(getgenv().Config[delayKey])
         box.FocusLost:Connect(function() getgenv().Config[delayKey] = tonumber(box.Text) or 300; SaveConfig() end)
     end
     AddTimedRow("Auto Hop Server", "AutoHopServer", "AutoHopDelay")
     AddTimedRow("Auto Rejoin Timer", "AutoRejoinTimer", "AutoRejoinTimerDelay")
 
-    -- 4. REJOIN URL
-    local rRow = Instance.new("Frame", scroll)
-    rRow.Size = UDim2.new(1, -10, 0, 30); rRow.BackgroundTransparency = 1
-    local rLab = Instance.new("TextLabel", rRow)
-    rLab.Size = UDim2.new(0.35, 0, 1, 0); rLab.Text = "Rejoin URL:"; rLab.TextColor3 = Color3.fromRGB(200, 200, 200); rLab.BackgroundTransparency = 1; rLab.TextSize = 10; rLab.TextXAlignment = Enum.TextXAlignment.Left
-    local rBox = Instance.new("TextBox", rRow)
-    rBox.Position = UDim2.new(0.35, 0, 0, 0); rBox.Size = UDim2.new(0.65, 0, 1, 0); rBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); rBox.TextColor3 = Color3.fromRGB(255, 255, 255); rBox.Text = getgenv().Config.RejoinSource; rBox.ClearTextOnFocus = false; rBox.TextTruncate = Enum.TextTruncate.AtEnd
+    -- REJOIN URL ROW
+    local rRow = Instance.new("Frame", scroll); rRow.Size = UDim2.new(1, -10, 0, 30); rRow.BackgroundTransparency = 1
+    local rLab = Instance.new("TextLabel", rRow); rLab.Size = UDim2.new(0.35, 0, 1, 0); rLab.Text = "Rejoin URL:"; rLab.TextColor3 = Color3.fromRGB(200, 200, 200); rLab.BackgroundTransparency = 1; rLab.TextSize = 10; rLab.TextXAlignment = Enum.TextXAlignment.Left
+    local rBox = Instance.new("TextBox", rRow); rBox.Position = UDim2.new(0.35, 0, 0, 0); rBox.Size = UDim2.new(0.65, 0, 1, 0); rBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); rBox.TextColor3 = Color3.fromRGB(255, 255, 255); rBox.Text = getgenv().Config.RejoinSource; rBox.ClearTextOnFocus = false; rBox.TextTruncate = Enum.TextTruncate.AtEnd
     rBox.FocusLost:Connect(function() getgenv().Config.RejoinSource = rBox.Text; SaveConfig() end)
 
-    -- 5. EXECUTE URL + LOOP + DELAY (YÊU CẦU MỚI)
-    local eRow = Instance.new("Frame", scroll)
-    eRow.Size = UDim2.new(1, -10, 0, 30); eRow.BackgroundTransparency = 1
-    
-    local eBox = Instance.new("TextBox", eRow)
-    eBox.Size = UDim2.new(0.4, 0, 1, 0); eBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); eBox.TextColor3 = Color3.fromRGB(255, 255, 255); eBox.Text = getgenv().Config.ExecuteThisScript; eBox.PlaceholderText = "Execute URL..."; eBox.ClearTextOnFocus = false; eBox.TextTruncate = Enum.TextTruncate.AtEnd
+    -- EXECUTE URL + LOOP + DELAY (Áp dụng Layout gọn gàng)
+    local eRow = Instance.new("Frame", scroll); eRow.Size = UDim2.new(1, -10, 0, 30); eRow.BackgroundTransparency = 1
+    local eLab = Instance.new("TextLabel", eRow); eLab.Size = UDim2.new(0.35, 0, 1, 0); eLab.Text = "Execute URL:"; eLab.TextColor3 = Color3.fromRGB(200, 200, 200); eLab.BackgroundTransparency = 1; eLab.TextSize = 10; eLab.TextXAlignment = Enum.TextXAlignment.Left
+    local eBox = Instance.new("TextBox", eRow); eBox.Position = UDim2.new(0.35, 0, 0, 0); eBox.Size = UDim2.new(0.25, 0, 1, 0); eBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); eBox.TextColor3 = Color3.fromRGB(255, 255, 255); eBox.Text = getgenv().Config.ExecuteThisScript; eBox.ClearTextOnFocus = false; eBox.TextTruncate = Enum.TextTruncate.AtEnd
     eBox.FocusLost:Connect(function() getgenv().Config.ExecuteThisScript = eBox.Text; SaveConfig() end)
-
-    local eLoop = Instance.new("TextButton", eRow)
-    eLoop.Position = UDim2.new(0.4, 5, 0, 0); eLoop.Size = UDim2.new(0.35, -5, 1, 0); eLoop.Font = Enum.Font.GothamBold; eLoop.TextSize = 9
-    local function UpdELoop()
-        eLoop.Text = "Loop Exec: " .. (getgenv().Config.LoopExecute and "ON" or "OFF")
-        eLoop.BackgroundColor3 = getgenv().Config.LoopExecute and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-    end
-    eLoop.MouseButton1Click:Connect(function() getgenv().Config.LoopExecute = not getgenv().Config.LoopExecute; SaveConfig(); UpdELoop() end)
-    UpdELoop()
-
-    local eDelay = Instance.new("TextBox", eRow)
-    eDelay.Position = UDim2.new(0.75, 5, 0, 0); eDelay.Size = UDim2.new(0.25, -5, 1, 0); eDelay.BackgroundColor3 = Color3.fromRGB(45, 45, 45); eDelay.TextColor3 = Color3.fromRGB(255, 255, 255); eDelay.Text = tostring(getgenv().Config.LoopExecuteDelay)
+    local eLoop = Instance.new("TextButton", eRow); eLoop.Position = UDim2.new(0.6, 5, 0, 0); eLoop.Size = UDim2.new(0.2, -5, 1, 0); eLoop.Font = Enum.Font.GothamBold; eLoop.TextSize = 9
+    local function UpdELoop() eLoop.Text = "Loop: " .. (getgenv().Config.LoopExecute and "ON" or "OFF"); eLoop.BackgroundColor3 = getgenv().Config.LoopExecute and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+    eLoop.MouseButton1Click:Connect(function() getgenv().Config.LoopExecute = not getgenv().Config.LoopExecute; SaveConfig(); UpdELoop() end); UpdELoop()
+    local eDelay = Instance.new("TextBox", eRow); eDelay.Position = UDim2.new(0.8, 5, 0, 0); eDelay.Size = UDim2.new(0.2, -5, 1, 0); eDelay.BackgroundColor3 = Color3.fromRGB(45, 45, 45); eDelay.TextColor3 = Color3.fromRGB(255, 255, 255); eDelay.Text = tostring(getgenv().Config.LoopExecuteDelay)
     eDelay.FocusLost:Connect(function() getgenv().Config.LoopExecuteDelay = tonumber(eDelay.Text) or 5; SaveConfig() end)
 
-    -- 6. USER ONLY (YÊU CẦU MỚI)
-    local uRow = Instance.new("Frame", scroll)
-    uRow.Size = UDim2.new(1, -10, 0, 30); uRow.BackgroundTransparency = 1
-    
-    local uSave = Instance.new("TextButton", uRow)
-    uSave.Size = UDim2.new(0.5, -5, 1, 0); uSave.BackgroundColor3 = Color3.fromRGB(155, 89, 182); uSave.Text = "SAVE USER ONLY"; uSave.Font = Enum.Font.GothamBold; uSave.TextSize = 10
+    -- USER ONLY ROW
+    local uRow = Instance.new("Frame", scroll); uRow.Size = UDim2.new(1, -10, 0, 30); uRow.BackgroundTransparency = 1
+    local uSave = Instance.new("TextButton", uRow); uSave.Size = UDim2.new(0.5, -5, 1, 0); uSave.BackgroundColor3 = Color3.fromRGB(155, 89, 182); uSave.Text = "SAVE USER ONLY"; uSave.Font = Enum.Font.GothamBold; uSave.TextSize = 10
     uSave.MouseButton1Click:Connect(function() SaveConfig() end)
-
-    local uToggle = Instance.new("TextButton", uRow)
-    uToggle.Position = UDim2.new(0.5, 5, 0, 0); uToggle.Size = UDim2.new(0.5, -5, 1, 0); uToggle.Font = Enum.Font.GothamBold; uToggle.TextSize = 10
-    local function UpdUToggle()
-        uToggle.Text = "Run User Only: " .. (getgenv().Config.UseUserOnly and "ON" or "OFF")
-        uToggle.BackgroundColor3 = getgenv().Config.UseUserOnly and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
-    end
-    uToggle.MouseButton1Click:Connect(function() getgenv().Config.UseUserOnly = not getgenv().Config.UseUserOnly; SaveConfig(); UpdUToggle() end)
-    UpdUToggle()
+    local uToggle = Instance.new("TextButton", uRow); uToggle.Position = UDim2.new(0.5, 5, 0, 0); uToggle.Size = UDim2.new(0.5, -5, 1, 0); uToggle.Font = Enum.Font.GothamBold; uToggle.TextSize = 10
+    local function UpdUToggle() uToggle.Text = "Run User Only: " .. (getgenv().Config.UseUserOnly and "ON" or "OFF"); uToggle.BackgroundColor3 = getgenv().Config.UseUserOnly and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+    uToggle.MouseButton1Click:Connect(function() getgenv().Config.UseUserOnly = not getgenv().Config.UseUserOnly; SaveConfig(); UpdUToggle() end); UpdUToggle()
 end
-
 CreateUI()
 
 ----------------------------------------------------------------
--- HỆ THỐNG LOGIC
+-- HỆ THỐNG LOGIC (SỬ DỤNG CẤU TRÚC LOADER BẠN ĐƯA RA)
 ----------------------------------------------------------------
 if getgenv().Config.AutoRejoin then
-    local queue_teleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
-    if queue_teleport then
-        local rejoinScript = "pcall(function() if not game:IsLoaded() then game.Loaded:Wait() end "
-        if getgenv().Config.RejoinSource ~= "" then rejoinScript = rejoinScript .. "loadstring(game:HttpGet('"..getgenv().Config.RejoinSource.."'))() " end
-        if getgenv().Config.ExecuteThisScript ~= "" then rejoinScript = rejoinScript .. "loadstring(game:HttpGet('"..getgenv().Config.ExecuteThisScript.."'))() " end
-        rejoinScript = rejoinScript .. "end)"
-        pcall(queue_teleport, rejoinScript)
+    local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
+    if QueueOnTeleport then
+        pcall(function()
+            -- Cấu trúc sạch 100% như bạn yêu cầu
+            if getgenv().Config.RejoinSource ~= "" then
+                QueueOnTeleport("loadstring(game:HttpGet('"..getgenv().Config.RejoinSource.."'))()")
+            end
+            if getgenv().Config.ExecuteThisScript ~= "" then
+                QueueOnTeleport("loadstring(game:HttpGet('"..getgenv().Config.ExecuteThisScript.."'))()")
+            end
+        end)
     end
     GuiService.ErrorMessageChanged:Connect(function() task.wait(1) TeleportService:Teleport(game.PlaceId, lp) end)
 end
 
--- Logic Loop Execute Script (MỚI)
+-- Vòng lặp Execute độc lập
 task.spawn(function()
     while true do
         if getgenv().Config.LoopExecute and getgenv().Config.ExecuteThisScript ~= "" then
@@ -273,6 +183,7 @@ task.spawn(function()
     end
 end)
 
+-- Các logic phụ khác giữ nguyên 100%
 task.spawn(function()
     while task.wait(1) do
         if getgenv().Config.AutoHopServer then
