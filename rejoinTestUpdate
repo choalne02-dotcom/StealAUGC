@@ -1,0 +1,333 @@
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local GuiService = game:GetService("GuiService")
+local VirtualUser = game:GetService("VirtualUser")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local lp = Players.LocalPlayer
+local FILENAME = "S_Scripts_Config.json"
+local USER_FILENAME = "S_Scripts_" .. lp.UserId .. ".json"
+
+local is_file = isfile or function() return false end
+local read_file = readfile or function() return "" end
+local write_file = writefile or function() end
+
+-- Chờ game load hoàn toàn trước khi tiếp tục
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local function LoadConfig()
+    local default = {
+        AntiAFK = true,
+        AutoRejoin = true,
+        AutoJump = false,
+        AntiStuck = true,
+        TeleportLoop = false,
+        TeleportPoint = {x = 0, y = 100, z = 0},
+        TeleportDelay = 0.5,
+        Fly = false,
+        NoClip = false,
+        RejoinSource = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/rejoinScriptByQuang",
+        ExecuteThisScript = "",
+        AutoHopServer = false,
+        AutoHopDelay = 300,
+        AutoRejoinTimer = false,
+        AutoRejoinTimerDelay = 300,
+        LoopExecute = false,
+        LoopExecuteDelay = 5,
+        UseUserOnly = false
+    }
+    
+    local target = FILENAME
+    if is_file(FILENAME) then
+        local s, decoded = pcall(HttpService.JSONDecode, HttpService, read_file(FILENAME))
+        if s and decoded.UseUserOnly and is_file(USER_FILENAME) then target = USER_FILENAME end
+    end
+
+    if is_file(target) then
+        local success, decoded = pcall(HttpService.JSONDecode, HttpService, read_file(target))
+        if success and type(decoded) == "table" then 
+            for k, v in pairs(decoded) do default[k] = v end
+        end
+    end
+    getgenv().Config = default
+end
+
+local function SaveConfig()
+    pcall(function()
+        local data = HttpService:JSONEncode(getgenv().Config)
+        write_file(FILENAME, data)
+        if getgenv().Config.UseUserOnly then write_file(USER_FILENAME, data) end
+    end)
+end
+
+LoadConfig()
+
+-- Hàm thực thi linh hoạt: hỗ trợ URL hoặc Script thô
+local function UniversalExecute(source)
+    if source == "" then return end
+    local code = ""
+    if source:match("^http") then
+        local s, res = pcall(game.HttpGet, game, source)
+        if s then code = res end
+    else
+        code = source
+    end
+    
+    if code ~= "" then
+        local func, err = loadstring(code)
+        if func then 
+            task.spawn(func) 
+        else 
+            warn("Execute Error: " .. tostring(err)) 
+        end
+    end
+end
+
+local function HopServer()
+    local PlaceID = game.PlaceId
+    local JobID = game.JobId
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"))
+    end)
+    if success then
+        for _, server in pairs(result.data) do
+            if server.playing < server.maxPlayers and server.id ~= JobID then
+                TeleportService:TeleportToPlaceInstance(PlaceID, server.id, lp)
+                break
+            end
+        end
+    end
+end
+
+----------------------------------------------------------------
+-- GIAO DIỆN (UI)
+----------------------------------------------------------------
+local function CreateUI()
+    if CoreGui:FindFirstChild("S_ScriptUI") then CoreGui.S_ScriptUI:Destroy() end
+    
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "S_ScriptUI"
+    sg.ResetOnSpawn = false
+    sg.DisplayOrder = 2147483647
+    sg.IgnoreGuiInset = true
+
+    local function ForceOnTop()
+        sg.DisplayOrder = 2147483647
+        local p = CoreGui:FindFirstChild("PurchasePrompt") or CoreGui:FindFirstChild("RobloxGui") or CoreGui
+        if sg.Parent ~= p then sg.Parent = p end
+    end
+    RunService.RenderStepped:Connect(ForceOnTop)
+
+    local main = Instance.new("Frame", sg)
+    main.Size = UDim2.new(0, 320, 0, 420)
+    main.Position = UDim2.new(0, 20, 0.5, -210)
+    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    main.Active = true
+    main.Draggable = true
+    main.ClipsDescendants = true
+    
+    local scroll = Instance.new("ScrollingFrame", main)
+    scroll.Size = UDim2.new(1, -10, 1, -45)
+    scroll.Position = UDim2.new(0, 5, 0, 45)
+    scroll.BackgroundTransparency = 1
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+    scroll.ScrollBarThickness = 3
+    
+    local list = Instance.new("UIListLayout", scroll)
+    list.Padding = UDim.new(0, 8)
+    
+    local t = Instance.new("TextLabel", main)
+    t.Size = UDim2.new(1, 0, 0, 40)
+    t.Text = "  Support Script V1"
+    t.BackgroundColor3 = Color3.fromRGB(142, 68, 173)
+    t.TextColor3 = Color3.fromRGB(255, 255, 255)
+    t.Font = Enum.Font.GothamBold
+    t.TextXAlignment = Enum.TextXAlignment.Left
+
+    local minBtn = Instance.new("TextButton", main)
+    minBtn.Size = UDim2.new(0, 30, 0, 30)
+    minBtn.Position = UDim2.new(1, -35, 0, 5)
+    minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    minBtn.Text = "-"
+    minBtn.TextColor3 = Color3.new(1, 1, 1)
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.TextSize = 20
+
+    local minimized = false
+    minBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        if minimized then
+            scroll.Visible = false
+            main:TweenSize(UDim2.new(0, 320, 0, 40), "Out", "Quad", 0.3, true)
+            minBtn.Text = "+"
+        else
+            main:TweenSize(UDim2.new(0, 320, 0, 420), "Out", "Quad", 0.3, true, function()
+                scroll.Visible = true
+            end)
+            minBtn.Text = "-"
+        end
+    end)
+
+    local function AddSimpleToggle(text, configKey)
+        local btn = Instance.new("TextButton", scroll)
+        btn.Size = UDim2.new(1, -10, 0, 30)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 11
+        local function UpdateBtn()
+            btn.Text = text .. ": " .. (getgenv().Config[configKey] and "ON" or "OFF")
+            btn.BackgroundColor3 = getgenv().Config[configKey] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
+        end
+        btn.MouseButton1Click:Connect(function() getgenv().Config[configKey] = not getgenv().Config[configKey]; SaveConfig(); UpdateBtn() end)
+        UpdateBtn()
+    end
+
+    AddSimpleToggle("Anti AFK", "AntiAFK")
+    AddSimpleToggle("Auto Rejoin (Kick)", "AutoRejoin")
+    AddSimpleToggle("Auto Jump", "AutoJump")
+    AddSimpleToggle("Anti Stuck", "AntiStuck")
+    AddSimpleToggle("Fly Mode", "Fly")
+    AddSimpleToggle("No Clip", "NoClip")
+
+    local tpRow = Instance.new("Frame", scroll); tpRow.Size = UDim2.new(1, -10, 0, 30); tpRow.BackgroundTransparency = 1
+    local loopBtn = Instance.new("TextButton", tpRow); loopBtn.Size = UDim2.new(0.4, -5, 1, 0); loopBtn.Font = Enum.Font.GothamBold; loopBtn.TextSize = 10
+    local function UpdLoop() loopBtn.Text = "TP Loop: " .. (getgenv().Config.TeleportLoop and "ON" or "OFF"); loopBtn.BackgroundColor3 = getgenv().Config.TeleportLoop and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+    loopBtn.MouseButton1Click:Connect(function() getgenv().Config.TeleportLoop = not getgenv().Config.TeleportLoop; SaveConfig(); UpdLoop() end); UpdLoop()
+    local saveBtn = Instance.new("TextButton", tpRow); saveBtn.Position = UDim2.new(0.4, 0, 0, 0); saveBtn.Size = UDim2.new(0.4, -5, 1, 0); saveBtn.BackgroundColor3 = Color3.fromRGB(52, 152, 219); saveBtn.Text = "SAVE POS"; saveBtn.Font = Enum.Font.GothamBold; saveBtn.TextSize = 10
+    saveBtn.MouseButton1Click:Connect(function() if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then local pos = lp.Character.HumanoidRootPart.Position; getgenv().Config.TeleportPoint = {x = pos.X, y = pos.Y, z = pos.Z}; SaveConfig() end end)
+    local tpBox = Instance.new("TextBox", tpRow); tpBox.Position = UDim2.new(0.8, 0, 0, 0); tpBox.Size = UDim2.new(0.2, 0, 1, 0); tpBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); tpBox.TextColor3 = Color3.fromRGB(255, 255, 255); tpBox.Text = tostring(getgenv().Config.TeleportDelay); tpBox.ClearTextOnFocus = true
+    tpBox.FocusLost:Connect(function() getgenv().Config.TeleportDelay = tonumber(tpBox.Text) or 0; SaveConfig(); tpBox.Text = tostring(getgenv().Config.TeleportDelay) end)
+
+    local function AddTimedRow(text, toggleKey, delayKey)
+        local row = Instance.new("Frame", scroll); row.Size = UDim2.new(1, -10, 0, 30); row.BackgroundTransparency = 1
+        local btn = Instance.new("TextButton", row); btn.Size = UDim2.new(0.75, -5, 1, 0); btn.Font = Enum.Font.GothamBold; btn.TextSize = 11
+        local function Upd() btn.Text = text .. ": " .. (getgenv().Config[toggleKey] and "ON" or "OFF"); btn.BackgroundColor3 = getgenv().Config[toggleKey] and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+        btn.MouseButton1Click:Connect(function() getgenv().Config[toggleKey] = not getgenv().Config[toggleKey]; SaveConfig(); Upd() end); Upd()
+        local box = Instance.new("TextBox", row); box.Position = UDim2.new(0.75, 0, 0, 0); box.Size = UDim2.new(0.25, 0, 1, 0); box.BackgroundColor3 = Color3.fromRGB(45, 45, 45); box.TextColor3 = Color3.fromRGB(255, 255, 255); box.Text = tostring(getgenv().Config[delayKey]); box.ClearTextOnFocus = true
+        box.FocusLost:Connect(function() getgenv().Config[delayKey] = tonumber(box.Text) or 0; SaveConfig(); box.Text = tostring(getgenv().Config[delayKey]) end)
+    end
+    AddTimedRow("Auto Hop Server", "AutoHopServer", "AutoHopDelay")
+    AddTimedRow("Auto Rejoin Timer", "AutoRejoinTimer", "AutoRejoinTimerDelay")
+
+    local rRow = Instance.new("Frame", scroll); rRow.Size = UDim2.new(1, -10, 0, 30); rRow.BackgroundTransparency = 1
+    local rLab = Instance.new("TextLabel", rRow); rLab.Size = UDim2.new(0.35, 0, 1, 0); rLab.Text = "Rejoin Source:"; rLab.TextColor3 = Color3.fromRGB(200, 200, 200); rLab.BackgroundTransparency = 1; rLab.TextSize = 10; rLab.TextXAlignment = Enum.TextXAlignment.Left
+    local rBox = Instance.new("TextBox", rRow); rBox.Position = UDim2.new(0.35, 0, 0, 0); rBox.Size = UDim2.new(0.65, 0, 1, 0); rBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); rBox.TextColor3 = Color3.fromRGB(255, 255, 255); rBox.Text = getgenv().Config.RejoinSource; rBox.ClearTextOnFocus = true; rBox.TextTruncate = Enum.TextTruncate.AtEnd
+    rBox.FocusLost:Connect(function() getgenv().Config.RejoinSource = rBox.Text; SaveConfig(); rBox.Text = getgenv().Config.RejoinSource end)
+
+    local eRow = Instance.new("Frame", scroll); eRow.Size = UDim2.new(1, -10, 0, 30); eRow.BackgroundTransparency = 1
+    local eLab = Instance.new("TextLabel", eRow); eLab.Size = UDim2.new(0.35, 0, 1, 0); eLab.Text = "Exec Source:"; eLab.TextColor3 = Color3.fromRGB(200, 200, 200); eLab.BackgroundTransparency = 1; eLab.TextSize = 10; eLab.TextXAlignment = Enum.TextXAlignment.Left
+    local eBox = Instance.new("TextBox", eRow); eBox.Position = UDim2.new(0.35, 0, 0, 0); eBox.Size = UDim2.new(0.25, 0, 1, 0); eBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); eBox.TextColor3 = Color3.fromRGB(255, 255, 255); eBox.Text = getgenv().Config.ExecuteThisScript; eBox.ClearTextOnFocus = true; eBox.TextTruncate = Enum.TextTruncate.AtEnd
+    eBox.FocusLost:Connect(function() getgenv().Config.ExecuteThisScript = eBox.Text; SaveConfig(); eBox.Text = getgenv().Config.ExecuteThisScript end)
+    local eLoop = Instance.new("TextButton", eRow); eLoop.Position = UDim2.new(0.6, 5, 0, 0); eLoop.Size = UDim2.new(0.2, -5, 1, 0); eLoop.Font = Enum.Font.GothamBold; eLoop.TextSize = 9
+    local function UpdELoop() eLoop.Text = "Loop: " .. (getgenv().Config.LoopExecute and "ON" or "OFF"); eLoop.BackgroundColor3 = getgenv().Config.LoopExecute and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+    eLoop.MouseButton1Click:Connect(function() getgenv().Config.LoopExecute = not getgenv().Config.LoopExecute; SaveConfig(); UpdELoop() end); UpdELoop()
+    local eDelay = Instance.new("TextBox", eRow); eDelay.Position = UDim2.new(0.8, 5, 0, 0); eDelay.Size = UDim2.new(0.2, -5, 1, 0); eDelay.BackgroundColor3 = Color3.fromRGB(45, 45, 45); eDelay.TextColor3 = Color3.fromRGB(255, 255, 255); eDelay.Text = tostring(getgenv().Config.LoopExecuteDelay); eDelay.ClearTextOnFocus = true
+    eDelay.FocusLost:Connect(function() getgenv().Config.LoopExecuteDelay = tonumber(eDelay.Text) or 0; SaveConfig(); eDelay.Text = tostring(getgenv().Config.LoopExecuteDelay) end)
+
+    local uRow = Instance.new("Frame", scroll); uRow.Size = UDim2.new(1, -10, 0, 30); uRow.BackgroundTransparency = 1
+    local uSave = Instance.new("TextButton", uRow); uSave.Size = UDim2.new(0.5, -5, 1, 0); uSave.BackgroundColor3 = Color3.fromRGB(155, 89, 182); uSave.Text = "SAVE USER ONLY"; uSave.Font = Enum.Font.GothamBold; uSave.TextSize = 10
+    uSave.MouseButton1Click:Connect(function() SaveConfig() end)
+    local uToggle = Instance.new("TextButton", uRow); uToggle.Position = UDim2.new(0.5, 5, 0, 0); uToggle.Size = UDim2.new(0.5, -5, 1, 0); uToggle.Font = Enum.Font.GothamBold; uToggle.TextSize = 10
+    local function UpdUToggle() uToggle.Text = "Run User Only: " .. (getgenv().Config.UseUserOnly and "ON" or "OFF"); uToggle.BackgroundColor3 = getgenv().Config.UseUserOnly and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60) end
+    uToggle.MouseButton1Click:Connect(function() getgenv().Config.UseUserOnly = not getgenv().Config.UseUserOnly; SaveConfig(); UpdUToggle() end); UpdUToggle()
+end
+CreateUI()
+
+----------------------------------------------------------------
+-- LOGIC
+----------------------------------------------------------------
+if getgenv().Config.AutoRejoin then
+    local QueueOnTeleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+    if QueueOnTeleport then
+        pcall(function()
+            local rSrc = getgenv().Config.RejoinSource
+            local eSrc = getgenv().Config.ExecuteThisScript
+            if rSrc ~= "" then
+                local code = rSrc:match("^http") and "loadstring(game:HttpGet('"..rSrc.."'))()" or rSrc
+                QueueOnTeleport(code)
+            end
+            if eSrc ~= "" then
+                local code = eSrc:match("^http") and "loadstring(game:HttpGet('"..eSrc.."'))()" or eSrc
+                QueueOnTeleport(code)
+            end
+        end)
+    end
+    GuiService.ErrorMessageChanged:Connect(function() task.wait(0.5) TeleportService:Teleport(game.PlaceId, lp) end)
+end
+
+-- Chạy Execute URL ban đầu (chống trùng khi không loop)
+if not getgenv().Config.LoopExecute and getgenv().Config.ExecuteThisScript ~= "" then
+    UniversalExecute(getgenv().Config.ExecuteThisScript)
+end
+
+-- Vòng lặp Execute
+task.spawn(function()
+    while true do
+        if getgenv().Config.LoopExecute and getgenv().Config.ExecuteThisScript ~= "" then
+            UniversalExecute(getgenv().Config.ExecuteThisScript)
+        end
+        local d = getgenv().Config.LoopExecuteDelay
+        if d and d > 0 then task.wait(d) else RunService.Heartbeat:Wait() end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if getgenv().Config.AutoHopServer then
+            task.wait(getgenv().Config.AutoHopDelay)
+            if getgenv().Config.AutoHopServer then HopServer() end
+        end
+        task.wait(1)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if getgenv().Config.AutoRejoinTimer then
+            task.wait(getgenv().Config.AutoRejoinTimerDelay)
+            if getgenv().Config.AutoRejoinTimer then TeleportService:Teleport(game.PlaceId, lp) end
+        end
+        task.wait(1)
+    end
+end)
+
+lp.Idled:Connect(function() if getgenv().Config.AntiAFK then VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new()) end end)
+
+local function handleCharacterLogic()
+    local char = lp.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if getgenv().Config.AntiStuck and hum.Sit then hum.Jump = true end
+        if getgenv().Config.AutoJump and hum.FloorMaterial ~= Enum.Material.Air then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+        if getgenv().Config.AntiStuck then
+            local state = hum:GetState()
+            if state == Enum.HumanoidStateType.FallingDown or state == Enum.HumanoidStateType.PlatformStanding then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
+        end
+        if getgenv().Config.NoClip then
+            for _, part in pairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end
+        end
+        if getgenv().Config.Fly and hrp then
+            local v = hrp:FindFirstChild("S_Fly") or Instance.new("BodyVelocity", hrp)
+            v.Name = "S_Fly"; v.Velocity = Vector3.new(0, 0, 0); v.MaxForce = Vector3.new(0, 9e9, 0)
+        elseif hrp and hrp:FindFirstChild("S_Fly") then hrp.S_Fly:Destroy() end
+    end
+end
+
+if _G.MainLoop then _G.MainLoop:Disconnect() end
+_G.MainLoop = RunService.RenderStepped:Connect(handleCharacterLogic)
+
+task.spawn(function()
+    while true do
+        if getgenv().Config.TeleportLoop and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            local p = getgenv().Config.TeleportPoint
+            lp.Character.HumanoidRootPart.CFrame = CFrame.new(p.x, p.y, p.z)
+        end
+        local d = getgenv().Config.TeleportDelay
+        if d and d > 0 then task.wait(d) else RunService.Heartbeat:Wait() end
+    end
+end)
