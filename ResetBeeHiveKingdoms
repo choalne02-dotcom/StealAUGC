@@ -18,13 +18,12 @@ local character = lp.Character or lp.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 
 --// Nhập mã Codes
-task.wait(5)
 local remoteCode = RS:WaitForChild("Remotes"):WaitForChild("EnterCode")
 local codes = {"1KLikes", "3GYAY", "TestCode3", "Launch", "BIG", "JoinGroup", "StoryTime", "Dragon", "Enchanted", "Rainbows", "Sunshine"}
 
 for _, c in ipairs(codes) do
     remoteCode:FireServer(c)
-    task.wait(0)
+    task.wait(0.1)
 end
 
 --// Di chuyển và sử dụng Item
