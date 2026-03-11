@@ -1,6 +1,6 @@
 --===[ QueueOnTeleport Loader ]===--
 local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
-local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/StealA_UGC"
+local SCRIPT_URL = "https://raw.githubusercontent.com/choalne02-dotcom/StealAUGC/refs/heads/main/ResetBeeHiveKingdoms"
 
 pcall(function()
     if QueueOnTeleport then
