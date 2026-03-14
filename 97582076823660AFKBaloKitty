@@ -1,39 +1,48 @@
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
--- Cấu hình tốc độ quét (Giảm xuống nếu bị lag)
-local WAIT_TIME = 0
+-- 1. TELEPORT TỚI TỌA ĐỘ YÊU CẦU KHI CHẠY SCRIPT
+local targetPos = Vector3.new(-80, 102, 265)
+hrp.CFrame = CFrame.new(targetPos)
 
-print("QuacHub: Auto Collect Started (No UI/No AFK)")
+print("QuacHub: Đã Teleport tới tọa độ yêu cầu!")
+
+-- 2. VÒNG LẶP QUÉT MÙ TOÀN BỘ WORKSPACE (THẤY GÌ HÚT NẤY)
+local SCAN_DELAY = 0 -- Tốc độ quét
 
 task.spawn(function()
     while true do
-        local success, err = pcall(function()
-            local char = player.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        pcall(function()
+            -- Cập nhật lại HRP nếu nhân vật chết hoặc reset
+            local currentChar = player.Character
+            local currentHrp = currentChar and currentChar:FindFirstChild("HumanoidRootPart")
             
-            -- Xác định vùng quét: Workspace.orbs
-            local targetFolder = workspace:FindFirstChild("orbs")
-            
-            if hrp and targetFolder then
-                -- Quét sâu tất cả mọi thứ bên trong folder orbs
-                local descendants = targetFolder:GetDescendants()
+            if currentHrp then
+                local allObjects = workspace:GetDescendants()
                 
-                for i = 1, #descendants do
-                    local obj = descendants[i]
+                for i = 1, #allObjects do
+                    local obj = allObjects[i]
                     
-                    -- Tìm trực tiếp đối tượng TouchTransmitter (TouchInterest)
+                    -- Tìm bất kỳ cái gì có TouchInterest
                     if obj:IsA("TouchTransmitter") then
                         local parentPart = obj.Parent
                         
-                        -- Kiểm tra nếu cha của nó là một Part hợp lệ
+                        -- Nếu là Part hợp lệ thì Fire
                         if parentPart and parentPart:IsA("BasePart") then
-                            firetouchinterest(hrp, parentPart, 0) -- Chạm
-                            firetouchinterest(hrp, parentPart, 1) -- Thả
+                            firetouchinterest(currentHrp, parentPart, 0) -- Chạm
+                            firetouchinterest(currentHrp, parentPart, 1) -- Thả
                         end
                     end
                 end
             end
+        end)
+        task.wait(SCAN_DELAY)
+    end
+end)
+
+print("QuacHub: Auto Scan All đang chạy...")
         end)
         
         if not success then
