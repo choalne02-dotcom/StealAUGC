@@ -83,6 +83,13 @@ local function aw()
     local root = char:FindFirstChild("HumanoidRootPart")
     if not hum or not root then return end
 
+    -- [ ƯU TIÊN NOCLIP ĐỂ CHỐNG BỊ ĐẨY RA KHỎI TƯỜNG ] --
+    if getgenv().Config.NoClip then 
+        for _, aB in pairs(char:GetDescendants()) do 
+            if aB:IsA("BasePart") then aB.CanCollide=false end 
+        end 
+    end
+
     if getgenv().Config.AntiFling then
         for _, p in pairs(c:GetPlayers()) do
             if p ~= i and p.Character then
@@ -110,22 +117,15 @@ local function aw()
         
         if hum.MoveDirection.Magnitude > 0 then
             local cam = workspace.CurrentCamera.CFrame
-            -- Trích xuất chính xác hướng tương đối từ Joystick so với Camera
-            -- Khi mày rê trái, RightVector của Camera sẽ được dùng để đẩy mày sang trái
             local moveDir = hum.MoveDirection
-            
-            -- Tính toán vận tốc dựa trên hệ trục tọa độ của Camera ngay tại thời điểm RenderStepped
             local look = cam.LookVector
             local right = cam.RightVector
             
-            -- Chuyển đổi hướng từ Joystick thế giới sang hướng dựa theo góc nhìn Camera
-            -- dot product để lấy độ lớn tiến/lùi và trái/phải tương đối
             local forwardAmount = moveDir:Dot(cam.LookVector)
             local rightAmount = moveDir:Dot(cam.RightVector)
             
             bv.velocity = (look * forwardAmount * 50) + (right * rightAmount * 50)
             
-            -- Fix bay lên/xuống khi nhìn xéo
             if math.abs(look.Y) > 0.3 then
                 bv.velocity = bv.velocity + Vector3.new(0, look.Y * forwardAmount * 50, 0)
             end
@@ -139,16 +139,25 @@ local function aw()
         hum.PlatformStand = false
     end
 
-    if getgenv().Config.AntiStuck and hum.Sit then hum.Jump=true end
-    if getgenv().Config.AutoJump and hum.FloorMaterial~=Enum.Material.Air then hum:ChangeState(Enum.HumanoidStateType.Jumping)end
-    if getgenv().Config.AntiStuck then 
-        local aA=hum:GetState()
-        if aA==Enum.HumanoidStateType.FallingDown or aA==Enum.HumanoidStateType.PlatformStanding then hum:ChangeState(Enum.HumanoidStateType.GettingUp)end 
+    -- [ ANTI STUCK TUYỆT ĐỐI - PHÁT HIỆN LÀ NHẢY LIỀN ] --
+    if getgenv().Config.AntiStuck then
+        if hum.Sit then 
+            hum.Sit = false -- Khóa trạng thái ngồi ngay lập tức
+            hum.Jump = true -- Ép hành động nhảy ngay tại frame phát hiện
+            -- Sử dụng ChangeState để phá vỡ hiệu ứng ngồi của Roblox
+            hum:ChangeState(Enum.HumanoidStateType.Jumping) 
+        end
+        
+        local currentState = hum:GetState()
+        if currentState == Enum.HumanoidStateType.FallingDown or currentState == Enum.HumanoidStateType.PlatformStanding then
+            if not getgenv().Config.Fly then
+                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end
     end
-    if getgenv().Config.NoClip then 
-        for _, aB in pairs(char:GetDescendants()) do 
-            if aB:IsA("BasePart") then aB.CanCollide=false end 
-        end 
+
+    if getgenv().Config.AutoJump and hum.FloorMaterial ~= Enum.Material.Air then 
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end
 
