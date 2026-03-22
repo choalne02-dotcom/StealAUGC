@@ -1,0 +1,673 @@
+-- Tên định danh cho GUI của bạn
+local GUI_NAME = "Sniffer_GUI"
+local HttpService = game:GetService("HttpService")
+
+-- Kiểm tra nếu GUI đã tồn tại thì xóa nó đi trước khi chạy bản mới
+local existingGui = game:GetService("CoreGui"):FindFirstChild(GUI_NAME) or game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui"):FindFirstChild(GUI_NAME)
+if existingGui then
+    existingGui:Destroy()
+end
+
+-- Thiết lập biến môi trường để chặn script chạy song song
+getgenv().MyScriptAlreadyExecuted = true
+
+
+local P,U,G,O=game:GetService("Players"),game:GetService("UserInputService"),game:GetService("CoreGui"),game:GetService("ProximityPromptService")
+local lp,d,s=P.LocalPlayer,{R={},C={},P={},T={},TP={},ET={},AT={}},{lp=false,atp=false,et=false,at=false,sd=0.1,td=0.1,tool_d=0.1, hook_enabled=true}
+local sg = Instance.new("ScreenGui", G)
+sg.Name = GUI_NAME
+sg.ResetOnSpawn = false
+local lastRemCount = 0
+
+-- [[ KETAMINE SERIALIZER ]]
+local function ketamine_to_string(v)
+    if type(v) == "table" then
+        local res = "{"
+        local first = true
+        for i, val in pairs(v) do 
+            if not first then res = res .. "," end
+            res = res .. "[" .. ketamine_to_string(i) .. "]=" .. ketamine_to_string(val)
+            first = false
+        end
+        return res .. "}"
+    elseif type(v) == "string" then return '"' .. v .. '"'
+    elseif type(v) == "userdata" then 
+        local success, name = pcall(function() return v:GetFullName() end)
+        return success and "game." .. tostring(name) or '"Unknown Userdata"'
+    else return tostring(v) end
+end
+
+-- [HÀM HỖ TRỢ GỐC]
+local function notify(title, text)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = title;
+        Text = text;
+        Duration = 2;
+    })
+end
+
+local function tableToString(t)
+    local str = ""
+    if type(t) ~= "table" then return tostring(t) end
+    for k,v in pairs(t) do
+        local val = tostring(v)
+        if type(v) == "table" then val = "{...}" elseif type(v) == "userdata" then val = v.Name end
+        if #val > 12 then val = val:sub(1,10)..".." end
+        str = str .. "["..tostring(k).."]:"..val..", "
+    end
+    return str ~= "" and str:sub(1, #str-2) or "{}"
+end
+
+local function getSafePath(obj)
+    if not obj then return "nil" end
+    local success, path = pcall(function()
+        local parts = {}
+        local curr = obj
+        while curr and curr ~= game do
+            local name = curr.Name
+            local safeName = name:gsub('"', '\\"')
+            table.insert(parts, 1, '["' .. safeName .. '"]')
+            curr = curr.Parent
+        end
+        return "game" .. table.concat(parts)
+    end)
+    return success and path or "nil"
+end
+
+local function getInstanceFromPath(path)
+    local success, obj = pcall(function()
+        local parts = path:split('["')
+        local current = game
+        for i=2, #parts do
+            local name = parts[i]:split('"]')[1]
+            current = current:FindFirstChild(name)
+        end
+        return current
+    end)
+    return success and obj or nil
+end
+
+-- [GIAO DIỆN CHÍNH]
+local tg=Instance.new("TextButton",sg);tg.Size,tg.BackgroundColor3,tg.Draggable,tg.Active,tg.ZIndex=UDim2.new(0,40,0,40),Color3.new(0,1,0.5),true,true,10
+tg.Position,tg.Text,tg.Font,tg.TextSize=UDim2.new(0,150,0,100),"S",2,18;Instance.new("UICorner",tg).CornerRadius=UDim.new(1,0)
+
+local f=Instance.new("Frame",sg);f.Size,f.Position,f.Visible,f.BackgroundColor3,f.Active,f.Draggable=UDim2.new(0,285,0,350),UDim2.new(0.6,-10,-0.1,0),true,Color3.fromRGB(15,15,15),true,true
+Instance.new("UICorner",f).CornerRadius=UDim.new(0,6);tg.MouseButton1Click:Connect(function()f.Visible=not f.Visible end)
+
+local ti=Instance.new("TextLabel",f);ti.Size,ti.BackgroundColor3,ti.Text,ti.TextColor3,ti.Font,ti.TextSize=UDim2.new(1,0,0,25),Color3.fromRGB(35,35,35),"Sniffer v1.5 By RbxNayap",Color3.new(1,1,1),2,14
+local st=Instance.new("TextLabel",f);st.Size,st.Position,st.BackgroundTransparency,st.TextColor3,st.TextSize=UDim2.new(1,0,0,18),UDim2.new(0,0,0,28),1,Color3.new(0,1,0.6),9
+
+local sep1 = Instance.new("Frame", f);
+sep1.Size, sep1.Position, sep1.BackgroundColor3, sep1.BorderSizePixel = UDim2.new(1,-10,0,1), UDim2.new(0,5,0,46), Color3.new(1,1,1), 0; sep1.BackgroundTransparency = 0.8
+
+local sc=Instance.new("ScrollingFrame",f);sc.Size,sc.Position,sc.BackgroundTransparency=UDim2.new(1,-10,1,-215),UDim2.new(0,5,0,210),1
+sc.ScrollBarThickness,sc.Active=3,true;sc.CanvasSize=UDim2.new(10,0,0,0)
+local ly=Instance.new("UIListLayout",sc);ly.Padding=UDim.new(0,0)
+
+-- [HÀM HIỂN THỊ DÒNG TRONG LIST]
+local function createRow(txt, tab, idx, isBlocked, fullPath, realObj, labelType, displayID)
+    local r=Instance.new("Frame",sc);r.Size,r.BackgroundColor3=UDim2.new(1,0,0,30),isBlocked and Color3.fromRGB(20,20,20) or Color3.fromRGB(30,30,30)
+    r.BorderSizePixel = 0
+    local line_h = Instance.new("Frame", r);
+    line_h.Size, line_h.Position, line_h.BackgroundColor3, line_h.BorderSizePixel = UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), Color3.new(1,1,1), 0; line_h.BackgroundTransparency = 0.9
+
+    local b=Instance.new("TextButton",r);b.Size,b.Position,b.Text,b.BackgroundColor3,b.TextColor3=UDim2.new(0,26,0,26),UDim2.new(0,2,0,2),isBlocked and "🔒" or "🔓",Color3.new(0.1,0.1,0.1),Color3.new(1,1,1)
+    b.TextSize = 14;
+    b.MouseButton1Click:Connect(function()
+        tab[idx].blocked = not isBlocked
+        ref()
+    end)
+
+    local x=Instance.new("TextButton",r);x.Size,x.Position,x.Text,x.BackgroundColor3,x.TextColor3=UDim2.new(0,26,0,26),UDim2.new(0,30,0,2),"X",Color3.new(0.5,0,0),Color3.new(1,1,1)
+    x.TextSize = 14;
+    if isBlocked then x.Visible = false end
+    x.MouseButton1Click:Connect(function() table.remove(tab, idx); ref() end)
+
+    local l=Instance.new("TextLabel",r);l.Size,l.Position,l.Text,l.TextColor3,l.TextSize,l.BackgroundTransparency,l.TextXAlignment=UDim2.new(0,180,1,0),UDim2.new(0,65,0,0),"#"..displayID.." "..txt,isBlocked and Color3.new(0.5,0.5,0.5) or Color3.new(1,1,1),9,1,0
+    l.ClipsDescendants = true
+
+    local line=Instance.new("Frame",r);line.Size,line.Position,line.BackgroundColor3,line.BackgroundTransparency=UDim2.new(0,1,1,0),UDim2.new(0,250,0,0),Color3.new(1,1,1),0.8
+
+    local cp=Instance.new("TextButton",r);cp.Size,cp.Position,cp.Text,cp.BackgroundColor3,cp.TextColor3=UDim2.new(0,26,0,26),UDim2.new(0,255,0,2),"📔",Color3.fromRGB(40,40,40),Color3.new(1,1,1)
+    cp.TextSize = 14;
+    cp.MouseButton1Click:Connect(function()
+        local code = ""
+        local path = (labelType ~= "TP") and getSafePath(realObj) or ""
+        
+        -- Logic xử lý xN hoặc số giây
+        local rawDV = s.sd
+        if labelType == "TP" then rawDV = s.td elseif labelType == "ET" or labelType == "AT" then rawDV = s.tool_d end
+        
+        local iterations = 1
+        local waitStr = "task.wait()"
+        
+        if type(rawDV) == "string" and rawDV:sub(1,1):lower() == "x" then
+            iterations = tonumber(rawDV:sub(2)) or 1
+            waitStr = "task.wait()"
+        else
+            iterations = 1
+            waitStr = "task.wait(" .. (tonumber(rawDV) or 0) .. ")"
+        end
+        
+        local cmd = ""
+        if labelType == "R" then
+            local rData = tab[idx]; local args = ""
+            if rData.a then 
+                local argTable = {}
+                for _, arg in ipairs(rData.a) do table.insert(argTable, ketamine_to_string(arg)) end
+                args = table.concat(argTable, ", ")
+            end
+            cmd = path..":"..(rData.m or "FireServer").."("..args..")"
+        elseif labelType == "C" then cmd = "fireclickdetector("..path..")"
+        elseif labelType == "P" then cmd = "fireproximityprompt("..path..")"
+        elseif labelType == "T" then cmd = "firetouchinterest(game:GetService('Players').LocalPlayer.Character.HumanoidRootPart, "..path..", 0)\n    firetouchinterest(game:GetService('Players').LocalPlayer.Character.HumanoidRootPart, "..path..", 1)"
+        elseif labelType == "TP" then 
+            local p = typeof(realObj) == "CFrame" and realObj.Position or realObj
+            cmd = "game:GetService('Players').LocalPlayer.Character:PivotTo(CFrame.new("..tostring(p).."))"
+        elseif labelType == "ET" then cmd = "game:GetService('Players').LocalPlayer.Character.Humanoid:EquipTool("..path..")"
+        elseif labelType == "AT" then cmd = path..":Activate()"
+        end
+
+        if iterations > 1 then
+            code = "while "..waitStr.." do\n    for i = 1, "..iterations.." do\n        "..cmd.."\n    end\nend"
+        else
+            code = "while "..waitStr.." do\n    "..cmd.."\nend"
+        end
+
+        setclipboard(code);
+        notify("Sniffer", "Copied loop code!"); cp.Text = "✅"; task.delay(2, function() if cp then cp.Text = "📔" end end)
+    end)
+
+    local pth=Instance.new("TextLabel",r);pth.Size,pth.Position,pth.Text,pth.TextColor3,pth.TextSize,pth.BackgroundTransparency,pth.TextXAlignment=UDim2.new(0,3000,1,0),UDim2.new(0,285,0,0),fullPath,Color3.new(0.7,0.7,1),9,1,0
+    pth.ClipsDescendants = true
+
+    if labelType == "R" then
+        local startOff = pth.Position.X.Offset + pth.TextBounds.X + 10
+        
+        -- [NÚT EDIT CŨ]
+        local ed=Instance.new("TextButton",r);ed.Size,ed.Position,ed.Text,ed.BackgroundColor3,ed.TextColor3=UDim2.new(0,26,0,26),UDim2.new(0,startOff,0,2),"✍️",Color3.fromRGB(40,40,40),Color3.new(1,1,1)
+        ed.TextSize = 14;
+        ed.MouseButton1Click:Connect(function()
+            local rData = tab[idx]
+            local editFrame = Instance.new("Frame", sg); editFrame.Size = UDim2.new(0, 300, 0, 150); editFrame.Position = UDim2.new(0.5, -150, 0.5, -75); editFrame.BackgroundColor3 = Color3.fromRGB(30,30,30); editFrame.Active = true; editFrame.Draggable = true
+            Instance.new("UICorner", editFrame)
+            local editBox = Instance.new("TextBox", editFrame); editBox.Size = UDim2.new(1, -20, 0, 80); editBox.Position = UDim2.new(0, 10, 0, 30); editBox.Text = ketamine_to_string(rData.a); editBox.TextWrapped = true; 
+            editBox.ClearTextOnFocus = false; editBox.BackgroundColor3 = Color3.fromRGB(40,40,40); editBox.TextColor3 = Color3.new(1,1,1)
+            local saveBtn_ed = Instance.new("TextButton", editFrame); saveBtn_ed.Size = UDim2.new(0, 100, 0, 30); saveBtn_ed.Position = UDim2.new(0.5, -50, 1, -40); saveBtn_ed.Text = "SAVE"; saveBtn_ed.BackgroundColor3 = Color3.fromRGB(0, 150, 80); saveBtn_ed.TextColor3 = Color3.new(1,1,1)
+            
+            saveBtn_ed.MouseButton1Click:Connect(function()
+                local func, err = loadstring("return " .. editBox.Text)
+                if func then
+                    local success, newData = pcall(func)
+                    if success and type(newData) == "table" then
+                        for k, v in pairs(newData) do rData.a[k] = v end
+                        rData.txt = tableToString(rData.a)
+                        notify("Sniffer", "Saved & Assigned!")
+                        editFrame:Destroy()
+                        ref()
+                    else notify("Error", "Bảng không hợp lệ!") end
+                else notify("Error", "Lỗi cú pháp Lua!") end
+            end)
+            local closeEdit = Instance.new("TextButton", editFrame);
+            closeEdit.Size = UDim2.new(0, 20, 0, 20); closeEdit.Position = UDim2.new(1, -25, 0, 5); closeEdit.Text = "X"; closeEdit.TextColor3 = Color3.new(1,0,0);
+            closeEdit.BackgroundTransparency = 1
+            closeEdit.MouseButton1Click:Connect(function() editFrame:Destroy() end)
+        end)
+
+        -- [NÚT DUPLICATE MỚI]
+        local dup=Instance.new("TextButton",r);dup.Size,dup.Position,dup.Text,dup.BackgroundColor3,dup.TextColor3=UDim2.new(0,26,0,26),UDim2.new(0,startOff + 30,0,2),"👯",Color3.fromRGB(40,40,40),Color3.new(1,1,1)
+        dup.TextSize = 14;
+        dup.MouseButton1Click:Connect(function()
+            local rData = tab[idx]
+            local dupFrame = Instance.new("Frame", sg); dupFrame.Size = UDim2.new(0, 200, 0, 100); dupFrame.Position = UDim2.new(0.5, -100, 0.5, -50); dupFrame.BackgroundColor3 = Color3.fromRGB(30,30,30); dupFrame.Active = true; dupFrame.Draggable = true
+            Instance.new("UICorner", dupFrame)
+            local dupTitle = Instance.new("TextLabel", dupFrame); dupTitle.Size = UDim2.new(1, 0, 0, 30); dupTitle.Text = "DUPLICATE COUNT"; dupTitle.TextColor3 = Color3.new(1, 1, 1); dupTitle.BackgroundTransparency = 1; dupTitle.TextSize = 12
+            local dupBox = Instance.new("TextBox", dupFrame); dupBox.Size = UDim2.new(0, 100, 0, 25); dupBox.Position = UDim2.new(0.5, -50, 0.4, 0); dupBox.Text = "1"; dupBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); dupBox.TextColor3 = Color3.new(1, 1, 1)
+            local dupBtn = Instance.new("TextButton", dupFrame); dupBtn.Size = UDim2.new(0, 80, 0, 25); dupBtn.Position = UDim2.new(0.5, -40, 0.75, 0); dupBtn.Text = "CONFIRM"; dupBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200); dupBtn.TextColor3 = Color3.new(1, 1, 1)
+            
+            dupBtn.MouseButton1Click:Connect(function()
+                local count = tonumber(dupBox.Text) or 0
+                if count > 0 then
+                    for i = 1, count do
+                        -- Copy dữ liệu từ entry hiện tại vào bảng Remote (d.R)
+                        table.insert(d.R, {
+                            o = rData.o,
+                            a = HttpService:JSONDecode(HttpService:JSONEncode(rData.a)), -- Deep copy args
+                            m = rData.m,
+                            txt = rData.txt,
+                            blocked = false,
+                            time = tick() + (i * 0.001) -- Đảm bảo sort thời gian đúng
+                        })
+                    end
+                    notify("Sniffer", "Duplicated " .. count .. " times!")
+                    dupFrame:Destroy()
+                    ref()
+                end
+            end)
+            local closeDup = Instance.new("TextButton", dupFrame); closeDup.Size = UDim2.new(0, 20, 0, 20); closeDup.Position = UDim2.new(1, -25, 0, 5); closeDup.Text = "X"; closeDup.TextColor3 = Color3.new(1, 0, 0); closeDup.BackgroundTransparency = 1
+            closeDup.MouseButton1Click:Connect(function() dupFrame:Destroy() end)
+        end)
+    end
+end
+
+-- [CẬP NHẬT TRẠNG THÁI UI KHI LOAD]
+local function updateUIStates()
+    if not lB or not mB or not eB or not acB or not hookBtn then return end
+    lB.Text="R/P/C/T: "..(s.lp and "ON" or "OFF");
+    lB.BackgroundColor3=s.lp and Color3.fromRGB(0,150,80) or Color3.fromRGB(60,60,60)
+    mB.Text="TP: "..(s.atp and "ON" or "OFF");
+    mB.BackgroundColor3=s.atp and Color3.fromRGB(0,100,200) or Color3.fromRGB(30,30,30)
+    eB.Text="ET: "..(s.et and "ON" or "OFF");
+    eB.BackgroundColor3=s.et and Color3.fromRGB(150,100,0) or Color3.fromRGB(40,40,40)
+    acB.Text="AT: "..(s.at and "ON" or "OFF");
+    acB.BackgroundColor3=s.at and Color3.fromRGB(180,50,0) or Color3.fromRGB(40,40,40)
+    
+    if s.hook_enabled then
+        hookBtn.Text = "HOOK: ON"
+        hookBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+    else
+        hookBtn.Text = "HOOK: OFF"
+        hookBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    end
+end
+
+function ref()
+    for _,v in pairs(sc:GetChildren())do if v:IsA("Frame")then v:Destroy()end end
+    st.Text=("R:%d | P:%d | C:%d | T:%d | TP:%d | ET:%d | AT:%d"):format(#d.R,#d.P,#d.C,#d.T,#d.TP,#d.ET,#d.AT)
+    
+    local allItems = {}
+    local function collect(tab, labelType)
+        for i, v in ipairs(tab) do
+            local dName, fPath, rObj = "", "nil", nil
+            if labelType == "R" then 
+                rObj = v.o;
+                dName = "R: "..(rObj and rObj.Name or "Unknown").." "..(v.m == "InvokeServer" and "(F)" or "(E)").." ["..(v.txt or "").."]"
+                fPath = "Path: "..getSafePath(rObj).." | Args: {"..(v.txt or "").."}"
+            elseif labelType == "P" or labelType == "C" or labelType == "T" or labelType == "ET" or labelType == "AT" then 
+                rObj = v.obj;
+                dName = labelType..": "..(rObj and rObj.Name or "Unknown"); fPath = "Path: "..getSafePath(rObj)
+            elseif labelType == "TP" then 
+                local p = typeof(v.obj) == "CFrame" and v.obj.Position or v.obj
+                dName = ("TP: %.1f, %.1f, %.1f"):format(p.X, p.Y, p.Z);
+                rObj = v.obj; fPath = "Position: "..tostring(p)
+            end
+            if not v.time then v.time = tick() end
+            table.insert(allItems, {txt = dName, tab = tab, idx = i, blocked = v.blocked, path = fPath, obj = rObj, lType = labelType, t = v.time})
+        end
+    end
+    collect(d.R, "R");
+    collect(d.P, "P"); collect(d.C, "C"); collect(d.T, "T"); collect(d.TP, "TP"); collect(d.ET, "ET");
+    collect(d.AT, "AT")
+    
+    table.sort(allItems, function(a, b) return a.t < b.t end)
+    for i, item in ipairs(allItems) do item.finalID = i end
+    table.sort(allItems, function(a, b)
+        if a.blocked ~= b.blocked then return not a.blocked end
+        return a.t > b.t
+    end)
+    for _, item in ipairs(allItems) do createRow(item.txt, item.tab, item.idx, item.blocked, item.path, item.obj, item.lType, item.finalID) end
+    sc.CanvasSize=UDim2.new(15,0,0,#sc:GetChildren()*30)
+end
+
+local function getVal(v) if type(v) == "table" and v.obj then return v.obj end return v end
+
+local function inp(p, v, t, df, boxX, allowX)
+    local l = Instance.new("TextLabel", f);
+    l.Size, l.Position, l.Text, l.TextColor3, l.TextSize, l.BackgroundTransparency = UDim2.new(0, 40, 0, 25), p, t, Color3.new(0.8, 0.8, 0.8), 9, 1
+    local x = Instance.new("TextBox", f);
+    x.Size, x.Position, x.BackgroundColor3, x.Text, x.TextColor3 = UDim2.new(0, 35, 0, 22), UDim2.new(0, boxX, p.Y.Scale, p.Y.Offset), Color3.fromRGB(40, 40, 40), df, Color3.new(1, 1, 0)
+    x.FocusLost:Connect(function() 
+        local rawText = x.Text:lower()
+        if allowX and rawText:sub(1,1) == "x" then
+            s[v] = rawText 
+        else
+            if not tonumber(x.Text) or x.Text == "" then x.Text = df end; 
+            s[v] = tonumber(x.Text) 
+        end
+    end);
+    return x 
+end
+
+local function btn(t,p,c,fn)
+    local bt=Instance.new("TextButton",f);bt.Size,bt.Position,bt.Text,bt.BackgroundColor3,bt.TextColor3,bt.Active=UDim2.new(0,265,0,28),p,t,c,Color3.new(1,1,1),true
+    if fn then bt.MouseButton1Click:Connect(fn) end
+    return bt
+end
+
+-- [Hàng 1: Remote/Proximity/Click/Touch]
+lB=btn("R/P/C/T: OFF",UDim2.new(0,10,0,48),Color3.fromRGB(60,60,60),function()
+    s.lp=not s.lp; lB.Text="R/P/C/T: "..(s.lp and "ON" or "OFF"); lB.BackgroundColor3=s.lp and Color3.fromRGB(0,150,80) or Color3.fromRGB(60,60,60)
+end);
+lB.Size = UDim2.new(0, 180, 0, 28)
+local sd_box = inp(UDim2.new(0, 195, 0, 50), "sd", "Time:", "0.1", 235, true)
+
+local sep2 = Instance.new("Frame", f);
+sep2.Size, sep2.Position, sep2.BackgroundColor3, sep2.BorderSizePixel = UDim2.new(1,-10,0,1), UDim2.new(0,5,0,78), Color3.new(1,1,1), 0; sep2.BackgroundTransparency = 0.8
+
+-- [Hàng 2: Teleport]
+mB=btn("TP: OFF",UDim2.new(0,10,0,81),Color3.fromRGB(30,30,30),function()
+    s.atp=not s.atp; mB.Text="TP: "..(s.atp and "ON" or "OFF"); mB.BackgroundColor3=s.atp and Color3.fromRGB(0,100,200) or Color3.fromRGB(30,30,30)
+end);
+mB.Size = UDim2.new(0, 80, 0, 28)
+aB=btn("SET TP POS",UDim2.new(0, 95, 0, 81),Color3.fromRGB(40,40,80),function()
+    if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then 
+        table.insert(d.TP, {obj = lp.Character.HumanoidRootPart.CFrame, blocked = false, time = tick()}); ref() 
+    end
+end);
+aB.Size = UDim2.new(0, 95, 0, 28)
+local td_box = inp(UDim2.new(0, 195, 0, 83), "td", "Time:", "0.1", 235, false)
+
+local sepTools = Instance.new("Frame", f);
+sepTools.Size, sepTools.Position, sepTools.BackgroundColor3, sepTools.BorderSizePixel = UDim2.new(1,-10,0,1), UDim2.new(0,5,0,111), Color3.new(1,1,1), 0; sepTools.BackgroundTransparency = 0.8
+
+-- [Hàng 3: Equip/Activate Tools + Tool Delay]
+eB=btn("ET: OFF",UDim2.new(0,10,0,114),Color3.fromRGB(40,40,40),function()
+    s.et=not s.et; eB.Text="ET: "..(s.et and "ON" or "OFF"); eB.BackgroundColor3=s.et and Color3.fromRGB(150,100,0) or Color3.fromRGB(40,40,40)
+end);
+eB.Size = UDim2.new(0, 90, 0, 28)
+
+acB=btn("AT: OFF",UDim2.new(0,105,0,114),Color3.fromRGB(40,40,40),function()
+    s.at=not s.at; acB.Text="AT: "..(s.at and "ON" or "OFF"); acB.BackgroundColor3=s.at and Color3.fromRGB(180,50,0) or Color3.fromRGB(40,40,40)
+end);
+acB.Size = UDim2.new(0, 85, 0, 28)
+local tool_d_box = inp(UDim2.new(0, 195, 0, 116), "tool_d", "Time:", "0.1", 235, false)
+
+local sep3 = Instance.new("Frame", f);
+sep3.Size, sep3.Position, sep3.BackgroundColor3, sep3.BorderSizePixel = UDim2.new(1,-10,0,1), UDim2.new(0,5,0,144), Color3.new(1,1,1), 0; sep3.BackgroundTransparency = 0.8
+
+-- [Hàng 4: SAVE / LOAD]
+local configName = Instance.new("TextBox", f)
+configName.Size, configName.Position, configName.BackgroundColor3 = UDim2.new(0, 110, 0, 24), UDim2.new(0, 10, 0, 147), Color3.fromRGB(30, 30, 30)
+configName.PlaceholderText = "Config Name..."
+configName.TextColor3, configName.Text = Color3.new(1,1,1), ""
+Instance.new("UICorner", configName)
+
+local saveBtn = btn("SAVE", UDim2.new(0, 125, 0, 147), Color3.fromRGB(0, 100, 50), function()
+    local name = configName.Text ~= "" and configName.Text or "Default"
+    local fileName = game.PlaceId .. "_" .. name .. ".json"
+    
+    local saveData = {
+        settings = s,
+        data = { R={}, P={}, C={}, T={}, TP={}, ET={}, AT={} }
+    }
+    
+    local function serialize(tab, target)
+        for _, v in pairs(tab) do
+            local item = {blocked = v.blocked, time = v.time}
+            if v.o then item.path = getSafePath(v.o);
+                item.m = v.m; item.a = v.a; item.txt = v.txt
+            elseif v.obj then
+                if typeof(v.obj) == "CFrame" then item.cf = {v.obj:GetComponents()}
+                else item.path = getSafePath(v.obj) end
+            end
+            table.insert(target, item)
+        end
+    end
+    
+    serialize(d.R, saveData.data.R); serialize(d.P, saveData.data.P);
+    serialize(d.C, saveData.data.C)
+    serialize(d.T, saveData.data.T);
+    serialize(d.TP, saveData.data.TP); serialize(d.ET, saveData.data.ET);
+    serialize(d.AT, saveData.data.AT)
+
+    writefile(fileName, HttpService:JSONEncode(saveData))
+    notify("System", "Saved config: " .. fileName)
+end)
+saveBtn.Size = UDim2.new(0, 70, 0, 24)
+
+-- BIẾN KIỂM SOÁT MENU LOAD (Để thực hiện Toggle)
+local activeLoadMenu = nil 
+local activeRenameFrame = nil
+
+local function showLoadMenu()
+    if activeLoadMenu then
+        activeLoadMenu:Destroy()
+        activeLoadMenu = nil
+        return
+    end
+
+    local loadMenu = Instance.new("Frame", sg)
+    activeLoadMenu = loadMenu 
+    
+    loadMenu.Size = UDim2.new(0, 250, 0, 300)
+    loadMenu.Position = UDim2.new(0.5, -125, 0.5, -150)
+    loadMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    loadMenu.Active, loadMenu.Draggable = true, true
+    Instance.new("UICorner", loadMenu)
+    
+    loadMenu.AncestryChanged:Connect(function()
+        if not loadMenu:IsDescendantOf(game) then activeLoadMenu = nil end
+    end)
+
+    local title = Instance.new("TextLabel", loadMenu)
+    title.Size, title.BackgroundColor3, title.Text, title.TextColor3 = UDim2.new(1, 0, 0, 30), Color3.fromRGB(35, 35, 35), "SELECT CONFIG", Color3.new(1, 1, 1)
+    
+    local closeBtn = Instance.new("TextButton", loadMenu)
+    closeBtn.Size, closeBtn.Position, closeBtn.Text, closeBtn.TextColor3, closeBtn.BackgroundTransparency = UDim2.new(0, 30, 0, 30), UDim2.new(1, -30, 0, 0), "X", Color3.new(1, 0, 0), 1
+    closeBtn.MouseButton1Click:Connect(function() loadMenu:Destroy(); activeLoadMenu = nil end)
+    
+    local listSc = Instance.new("ScrollingFrame", loadMenu)
+    listSc.Size, listSc.Position, listSc.BackgroundTransparency, listSc.ScrollBarThickness = UDim2.new(1, -10, 1, -40), UDim2.new(0, 5, 0, 35), 1, 2
+    local listLy = Instance.new("UIListLayout", listSc)
+    listLy.Padding = UDim.new(0, 5)
+
+    local function refreshFiles()
+        for _, v in pairs(listSc:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+        local files = listfiles("")
+        for _, file in pairs(files) do
+            if file:find(tostring(game.PlaceId)) and file:find(".json") then
+                local row = Instance.new("Frame", listSc);
+                row.Size = UDim2.new(1, 0, 0, 30); row.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                local name = file:gsub(tostring(game.PlaceId).."_", ""):gsub(".json", "")
+                
+                local nameBtn = Instance.new("TextButton", row);
+                nameBtn.Size, nameBtn.Position, nameBtn.Text, nameBtn.TextColor3, nameBtn.BackgroundTransparency, nameBtn.TextXAlignment = UDim2.new(1, -70, 1, 0), UDim2.new(0, 5, 0, 0), name, Color3.new(1, 1, 1), 1, 0
+                nameBtn.MouseButton1Click:Connect(function()
+                    local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(file)) end)
+                    if success then
+                        s = decoded.settings
+                        sd_box.Text, td_box.Text, tool_d_box.Text = tostring(s.sd), tostring(s.td), tostring(s.tool_d)
+                        d = { R={}, P={}, C={}, T={}, TP={}, ET={}, AT={} }
+                        local function deserialize(src, target)
+                            for _, v in pairs(src) do
+                                local item = {blocked = v.blocked, time = v.time}
+                                if v.path then 
+                                    local obj = getInstanceFromPath(v.path)
+                                    if obj then if v.m then item.o = obj; item.m = v.m; item.a = v.a; item.txt = v.txt else item.obj = obj end end
+                                elseif v.cf then item.obj = CFrame.new(unpack(v.cf)) end
+                                if item.o or item.obj then table.insert(target, item) end
+                            end
+                        end
+                        deserialize(decoded.data.R, d.R);
+                        deserialize(decoded.data.P, d.P); deserialize(decoded.data.C, d.C)
+                        deserialize(decoded.data.T, d.T);
+                        deserialize(decoded.data.TP, d.TP); deserialize(decoded.data.ET, d.ET); deserialize(decoded.data.AT, d.AT)
+                        
+                        updateUIStates()
+                        ref();
+                        notify("System", "Loaded: "..name); 
+                        loadMenu:Destroy(); activeLoadMenu = nil
+                    end
+                end)
+                
+                local delBtn = Instance.new("TextButton", row);
+                delBtn.Size, delBtn.Position, delBtn.Text, delBtn.BackgroundColor3 = UDim2.new(0, 25, 0, 25), UDim2.new(1, -30, 0, 2), "❌", Color3.fromRGB(80, 0, 0)
+                delBtn.MouseButton1Click:Connect(function() delfile(file); refreshFiles() end)
+                
+                local editBtn = Instance.new("TextButton", row);
+                editBtn.Size, editBtn.Position, editBtn.Text, editBtn.BackgroundColor3 = UDim2.new(0, 25, 0, 25), UDim2.new(1, -60, 0, 2), "✍️", Color3.fromRGB(40, 40, 40)
+                editBtn.MouseButton1Click:Connect(function() 
+                    -- Sửa lỗi: Nếu đang có bảng Rename khác thì xóa đi
+                    if activeRenameFrame then activeRenameFrame:Destroy() end
+                    
+                    local eFrame = Instance.new("Frame", sg); eFrame.Size = UDim2.new(0, 250, 0, 100); eFrame.Position = UDim2.new(0.5, -125, 0.5, -50); eFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30); eFrame.Active = true; eFrame.Draggable = true; Instance.new("UICorner", eFrame)
+                    activeRenameFrame = eFrame
+                    
+                    local eTitle = Instance.new("TextLabel", eFrame); eTitle.Size = UDim2.new(1, 0, 0, 30); eTitle.Text = "RENAME CONFIG"; eTitle.TextColor3 = Color3.new(1, 1, 1); eTitle.BackgroundTransparency = 1
+                    local eBox = Instance.new("TextBox", eFrame); eBox.Size = UDim2.new(0, 200, 0, 30); eBox.Position = UDim2.new(0.5, -100, 0.4, 0); eBox.Text = name; eBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); eBox.TextColor3 = Color3.new(1, 1, 1)
+                    local eSave = Instance.new("TextButton", eFrame);
+                    eSave.Size = UDim2.new(0, 80, 0, 25); eSave.Position = UDim2.new(0.5, -40, 0.75, 0); eSave.Text = "RENAME"; eSave.BackgroundColor3 = Color3.fromRGB(0, 120, 200);
+                    eSave.TextColor3 = Color3.new(1, 1, 1)
+                    eSave.MouseButton1Click:Connect(function()
+                        if eBox.Text ~= "" and eBox.Text ~= name then
+                            local oldFile = file
+                            local newFile = game.PlaceId .. "_" .. eBox.Text .. ".json"
+                            local content = readfile(oldFile)
+                            writefile(newFile, content)
+                            delfile(oldFile)
+                            notify("System", "Renamed config!")
+                            eFrame:Destroy(); activeRenameFrame = nil; refreshFiles()
+                        end
+                    end)
+                    local eClose = Instance.new("TextButton", eFrame);
+                    eClose.Size = UDim2.new(0, 20, 0, 20); eClose.Position = UDim2.new(1, -25, 0, 5); eClose.Text = "X"; eClose.TextColor3 = Color3.new(1, 0, 0);
+                    eClose.BackgroundTransparency = 1
+                    eClose.MouseButton1Click:Connect(function() eFrame:Destroy(); activeRenameFrame = nil end)
+                end)
+            end
+        end
+        listSc.CanvasSize = UDim2.new(0, 0, 0, listLy.AbsoluteContentSize.Y)
+    end
+    refreshFiles()
+end
+
+local loadBtn = btn("LOAD", UDim2.new(0, 200, 0, 147), Color3.fromRGB(100, 100, 0), showLoadMenu)
+loadBtn.Size = UDim2.new(0, 75, 0, 24)
+
+-- Gạch ngang hàng 5
+local sepBetween = Instance.new("Frame", f);
+sepBetween.Size, sepBetween.Position, sepBetween.BackgroundColor3, sepBetween.BorderSizePixel = UDim2.new(1,-10,0,1), UDim2.new(0,5,0,172), Color3.new(1,1,1), 0;
+sepBetween.BackgroundTransparency = 0.8
+
+-- [Hàng 5: RESET / HOOK / DECOMPILE]
+local resBtn = btn("RESET",UDim2.new(0,10,0,175),Color3.fromRGB(130,20,20),function() d={R={},C={},P={},T={},TP={},ET={},AT={}}; lastRemCount=0; ref() end)
+resBtn.Size = UDim2.new(0, 85, 0, 28)
+
+hookBtn = btn("HOOK: ON", UDim2.new(0, 100, 0, 175), Color3.fromRGB(0, 120, 200))
+hookBtn.MouseButton1Click:Connect(function()
+    s.hook_enabled = not s.hook_enabled
+    updateUIStates()
+end)
+hookBtn.Size = UDim2.new(0, 85, 0, 28)
+
+local decompBtn = btn("DECOMP", UDim2.new(0, 190, 0, 175), Color3.fromRGB(60, 60, 60), function()
+    pcall(function() loadstring(game:HttpGet("https://pastefy.app/ZxewhwFv/raw"))() end)
+end)
+decompBtn.Size = UDim2.new(0, 85, 0, 28)
+
+-- [[ HOOKS ]]
+local mt=getrawmetatable(game);
+setreadonly(mt,false); local old=mt.__namecall
+mt.__namecall=newcclosure(function(self,...)
+    local m, a = getnamecallmethod(), {...}
+    if s.hook_enabled and (m=="FireServer" or m=="InvokeServer") and not checkcaller() then
+        if not tostring(self):find("Chat") and not tostring(self):find("Report") then
+            local currentArgsTxt = ketamine_to_string(a); local ex = false
+            for _,v in pairs(d.R) do if (v.o == self and ketamine_to_string(v.a) == currentArgsTxt) then ex = true break end end
+            if not ex then table.insert(d.R, {o = self, a = a, m = m, txt = tableToString(a), blocked = false, time = tick()}) end
+        end
+    end
+    return old(self,...)
+end);
+setreadonly(mt,true)
+
+local function hookTool(tool)
+    if not tool:IsA("Tool") then return end
+    tool.Equipped:Connect(function()
+        if not s.hook_enabled then return end
+        local ex = false; for _,v in pairs(d.ET) do if v.obj == tool then ex = true break end end
+        if not ex then table.insert(d.ET, {obj = tool, blocked = false, time = tick()}); ref() end
+    end)
+    tool.Activated:Connect(function()
+        if not s.hook_enabled then return end
+        local ex = false; for _,v in pairs(d.AT) do if v.obj == tool then ex = true break end end
+        if not ex then table.insert(d.AT, {obj = tool, blocked = false, time = tick()}); ref() end
+    end)
+end
+lp.Backpack.ChildAdded:Connect(hookTool)
+if lp.Character then lp.Character.ChildAdded:Connect(hookTool) end
+for _,v in pairs(lp.Backpack:GetChildren()) do hookTool(v) end
+
+task.spawn(function() while task.wait(0.5) do local total = #d.R+#d.P+#d.C+#d.T+#d.TP+#d.ET+#d.AT; if total ~= lastRemCount then lastRemCount = total; ref() end end end)
+
+O.PromptTriggered:Connect(function(p,pl) 
+    if s.hook_enabled and pl==lp then 
+        local ex=false; for _,v in pairs(d.P) do if getVal(v)==p then ex=true break end end; 
+        if not ex then table.insert(d.P,{obj=p, blocked=false, time = tick()}); ref() end 
+    end 
+end)
+
+lp:GetMouse().Button1Down:Connect(function()
+    if not s.hook_enabled then return end
+    local t=lp:GetMouse().Target; if not t then return end
+    local c=t:FindFirstChildOfClass("ClickDetector") or (t.Parent and t.Parent:FindFirstChildOfClass("ClickDetector"))
+    if c then local ex=false; for _,v in pairs(d.C) do if getVal(v)==c then ex=true break end end; if not ex then table.insert(d.C,{obj=c, blocked=false, time = tick()}); ref() end end
+end)
+
+local function tr(v)
+    if v:IsA("BasePart") and v:FindFirstChildOfClass("TouchTransmitter") then
+        v.Touched:Connect(function(h) 
+            if s.hook_enabled and h.Parent==lp.Character then 
+                local ex=false; for _,obj in pairs(d.T) do if getVal(obj)==v then ex=true break end end;
+                if not ex then table.insert(d.T,{obj=v, blocked=false, time = tick()}); ref() end 
+            end 
+        end)
+    end
+end
+workspace.DescendantAdded:Connect(tr);
+for _,v in pairs(workspace:GetDescendants()) do tr(v) end
+
+-- [SYSTEM LOOPS]
+task.spawn(function()
+    while task.wait() do 
+        if s.lp then 
+            local iterations = 1
+            local delay = 0
+            local val = tostring(s.sd)
+            
+            if val:sub(1,1) == "x" then
+                iterations = tonumber(val:sub(2)) or 1
+                delay = 0
+            else
+                delay = tonumber(val) or 0
+            end
+
+            pcall(function()
+                for i = 1, iterations do
+                    for _,v in pairs(d.R) do if not v.blocked and v.o then if v.m=="FireServer" then v.o:FireServer(unpack(v.a)) else task.spawn(function() v.o:InvokeServer(unpack(v.a)) end) end end end
+                    for _,v in pairs(d.P) do if not v.blocked and v.obj and v.obj.Parent then fireproximityprompt(v.obj) end end
+                    for _,v in pairs(d.C) do if not v.blocked and v.obj and v.obj.Parent then fireclickdetector(v.obj) end end
+                    for _,v in pairs(d.T) do if not v.blocked and v.obj and v.obj.Parent and lp.Character:FindFirstChild("HumanoidRootPart") then firetouchinterest(lp.Character.HumanoidRootPart,v.obj,0);firetouchinterest(lp.Character.HumanoidRootPart,v.obj,1) end end
+                end
+            end); 
+            task.wait(delay)
+        else task.wait(0.5) end
+    end
+end)
+
+task.spawn(function()
+    while task.wait() do
+        if s.et or s.at then
+            pcall(function()
+                if s.et then for _,v in pairs(d.ET) do if not v.blocked and v.obj and v.obj.Parent and lp.Character:FindFirstChild("Humanoid") then lp.Character.Humanoid:EquipTool(v.obj) end end end
+                if s.at then for _,v in pairs(d.AT) do if not v.blocked and v.obj and v.obj.Parent then v.obj:Activate() end end end
+            end);
+            task.wait(s.tool_d)
+        else task.wait(0.5) end
+    end
+end)
+
+task.spawn(function()
+    while task.wait() do 
+        if s.atp and #d.TP>0 then
+            for _,v in ipairs(d.TP) do 
+                if not s.atp then break end
+                if not v.blocked and v.obj then if lp.Character then lp.Character:PivotTo(typeof(v.obj) == "CFrame" and v.obj or CFrame.new(v.obj)) end; task.wait(s.td) end
+            end
+        else task.wait(0.5) end
+    end
+end)
+
+-- Khởi tạo ban đầu
+updateUIStates()
+ref()
