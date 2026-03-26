@@ -1,147 +1,113 @@
---[[
-    Grab The Foodzik! - Auto Level + Hold Becoming Foodzik
-    By: RbxNayap
-    - Rainbow Border
-    - Force On Top (DisplayOrder Max)
-    - Auto Foodzik & XP Farm (No Buttons)
-]]
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local LocalPlayer = Players.LocalPlayer
-
--- Khởi tạo UI
-local sg = Instance.new("ScreenGui")
-local mf = Instance.new("Frame")
+-- Khởi tạo UI (Draggable & Active)
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
-local UIStroke = Instance.new("UIStroke")
+local ForceButton = Instance.new("TextButton")
+local SkillButton = Instance.new("TextButton")
 
--- [TÍNH NĂNG ON TOP GIỐNG SPOOF PANEL]
-sg.Name = "RbxNayap_Extreme_Overlay"
-sg.ResetOnSpawn = false
-sg.DisplayOrder = 2147483647
-sg.IgnoreGuiInset = true
+-- Thiết lập GUI chính
+ScreenGui.Name = "Custom_Control_Panel_V2"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
 
-local function ForceOnTop()
-    for _, child in ipairs(CoreGui:GetChildren()) do
-        if child:IsA("ScreenGui") and child ~= sg then
-            if child.DisplayOrder >= sg.DisplayOrder then
-                child.DisplayOrder = 2147483646
-            end
-        end
-    end
-    sg.DisplayOrder = 2147483647
-    
-    local p = CoreGui:FindFirstChild("PurchasePrompt") or CoreGui:FindFirstChild("RobloxGui") or CoreGui
-    if sg.Parent ~= p then
-        sg.Parent = p
-    end
-end
-RunService.RenderStepped:Connect(ForceOnTop)
-
--- Thiết lập Main Frame (Bỏ khoảng trống thừa)
-mf.Name = "MainFrame"
-mf.Parent = sg
-mf.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-mf.BackgroundTransparency = 0.5
-mf.Position = UDim2.new(0.5, -100, 0.1, 0)
-mf.Size = UDim2.new(0, 200, 0, 45) -- Kích thước tối giản
-mf.Active = true
-mf.Draggable = true 
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
+MainFrame.Size = UDim2.new(0, 220, 0, 150)
+MainFrame.Active = true
+MainFrame.Draggable = true 
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 8)
-MainCorner.Parent = mf
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
 
--- Viền Rainbow
-UIStroke.Parent = mf
-UIStroke.Thickness = 2
-UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-task.spawn(function()
-    local hue = 0
-    while true do
-        UIStroke.Color = Color3.fromHSV(hue, 1, 1)
-        hue = hue + (1/360)
-        if hue >= 1 then hue = 0 end
-        RunService.Heartbeat:Wait()
-    end
-end)
-
--- Tiêu đề
-Title.Size = UDim2.new(1, 0, 1, 0)
+Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundTransparency = 1
-Title.Text = "Grab The Foodzik!\nby RbxNayap"
+Title.Text = "Control Panel"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 14
-Title.Parent = mf
+Title.TextSize = 18
+Title.Parent = MainFrame
+
+-- Biến trạng thái (Toggle)
+local Toggles = {
+    ForceFoodzik = false,
+    XPFarming = false
+}
 
 -- Cấu hình Remote chung
 local BridgeNet = game:GetService("ReplicatedStorage"):WaitForChild("ncxyzero_bridgenet2-fork@1.1.5"):WaitForChild("dataRemoteEvent")
 
--- Hàm Server Hop (Tự động đổi khi server còn 1 người)
-local function serverHop()
-    local success, result = pcall(function()
-        return game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100")
+-- Hàm tạo nút bấm
+local function createButton(name, text, pos, toggleKey)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Parent = MainFrame
+    btn.Position = pos
+    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.AnchorPoint = Vector2.new(0.5, 0)
+    btn.Position = UDim2.new(0.5, 0, pos.Y.Scale, pos.Y.Offset)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.Text = text .. ": OFF"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 16
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        Toggles[toggleKey] = not Toggles[toggleKey]
+        btn.Text = text .. (Toggles[toggleKey] and ": ON" or ": OFF")
+        btn.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(60, 60, 60)
     end)
-    if success then
-        local decoded = HttpService:JSONDecode(result)
-        for _, v in ipairs(decoded.data) do
-            if v.playing < v.maxPlayers and v.id ~= game.JobId then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
-                break
-            end
-        end
-    end
+    return btn
 end
 
--- [VÒNG LẶP 1] Force Becoming Foodzik (GIỮ NGUYÊN 100% LOGIC & DELAY)
+createButton("ForceButton", "Force Becoming Foodzik", UDim2.new(0.5, 0, 0, 40), "ForceFoodzik")
+createButton("SkillButton", "XP Skill Farming", UDim2.new(0.5, 0, 0, 90), "XPFarming")
+
+-- [VÒNG LẶP 1] Force Becoming Foodzik (Check KHÔNG có phone)
 task.spawn(function()
     while true do
-        local character = LocalPlayer.Character
-        if character then
-            if not character:FindFirstChild("phone") then
-                task.wait(0.1) -- Giữ nguyên delay cũ
+        if Toggles.ForceFoodzik then
+            local character = game.Players.LocalPlayer.Character
+            if character then
+                -- Kiểm tra nếu KHÔNG có part tên "phone"
                 if not character:FindFirstChild("phone") then
-                    local args = {
-                        {
+                    task.wait(0.1) -- Chờ 1 giây
+                    -- Kiểm tra lại lần nữa sau 1s để chắc chắn vẫn chưa có phone
+                    if Toggles.ForceFoodzik and not character:FindFirstChild("phone") then
+                        local args = {
                             {
-                                "\001",
-                                ")\006\144\196\215\130M\006\178'\149\131\179\181@\226",
-                                { workspace:WaitForChild("Bu\197\130as") }
-                            },
-                            "("
+                                {
+                                    "\001",
+                                    ")\006\144\196\215\130M\006\178'\149\131\179\181@\226",
+                                    { workspace:WaitForChild("Bu\197\130as") }
+                                },
+                                "("
+                            }
                         }
-                    }
-                    BridgeNet:FireServer(unpack(args))
+                        BridgeNet:FireServer(unpack(args))
+                    end
                 end
             end
         end
-        task.wait(0.1) -- Giữ nguyên delay cũ
+        task.wait(0.5) -- Tốc độ quét điều kiện
     end
 end)
 
--- [VÒNG LẶP 2] XP Skill Farming (GIỮ NGUYÊN 30.1 GIÂY)
+-- [VÒNG LẶP 2] XP Skill Farming (30.1 giây)
 task.spawn(function()
     while true do
-        BridgeNet:FireServer({[1]=2, [2]="\b"})
-        BridgeNet:FireServer({[1]=1, [2]="\b"})
-        task.wait(30.1) -- Giữ nguyên delay cũ
-    end
-end)
-
--- [VÒNG LẶP 3] Check Server Hop
-task.spawn(function()
-    while true do
-        if #Players:GetPlayers() <= 1 then
-            serverHop()
+        if Toggles.XPFarming then
+            BridgeNet:FireServer({[1]=2, [2]="\b"})
+            BridgeNet:FireServer({[1]=1, [2]="\b"})
+            task.wait(30.1)
+        else
+            task.wait(0)
         end
-        task.wait(1)
     end
 end)
-
-print("Grab The Foodzik! - On Top & Rainbow Active")
