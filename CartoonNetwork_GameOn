@@ -1,1 +1,34 @@
+if getgenv().cartoon then return end
+getgenv().cartoon = true
+
+--===[ QueueOnTeleport Loader ]===--
+local QueueOnTeleport = queue_on_teleport or syn.queue_on_teleport
+local SCRIPT_URL = "https://raw.githubusercontent.com/QuangTrinh1009200303012007/RobloxUGC_Scripts/refs/heads/main/CartoonNetwork_GameOn"
+
+pcall(function()
+    if QueueOnTeleport then
+        QueueOnTeleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    end
+end)
+
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+-- Rejoin khi bị kick hoặc lỗi (Áp dụng cho mọi PlaceId)
+GuiService.ErrorMessageChanged:Connect(function()
+    task.wait()
+    TeleportService:Teleport(game.PlaceId, lp)
+end)
+
+
+local a = game:GetService("ReplicatedStorage")
+local b = game:GetService("TeleportService")
+local c = game:GetService("GuiService")
+local d = game:GetService("Players").LocalPlayer
+task.wait(60)
+a.Comm.RE["UGC.MrBean.AddScore"]:FireServer(10)
+task.wait(1)
+d:Kick()
 
