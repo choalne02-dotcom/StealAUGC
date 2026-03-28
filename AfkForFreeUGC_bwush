@@ -11,19 +11,28 @@ pcall(function()
     end
 end)
 
+-- Đợi Game Load Xong 100%
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
 
--- Khai báo vị trí cần tới
+-- Khai báo vị trí
 local targetPos = Vector3.new(741, 259, -329)
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
 
 -- 1. Thực hiện Teleport
-if character and character:FindFirstChild("HumanoidRootPart") then
-    character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-end
+hrp.CFrame = CFrame.new(targetPos)
 
--- 2. Đợi 1 giây để lệnh teleport ổn định
-task.wait(1.5)
+-- 2. Kiểm tra xem đã đến đích chưa (Vòng lặp chờ check khoảng cách)
+repeat
+    task.wait(0.5)
+    hrp.CFrame = CFrame.new(targetPos) -- Force lại vị trí nếu bị trôi
+until (hrp.Position - targetPos).Magnitude < 5
+
+-- Đợi thêm một chút cho dữ liệu ổn định
+task.wait(2)
 
 -- 3. Thiết lập tự động vào lại khi bị Kick (Rejoin)
 game:GetService("GuiService").ErrorMessageChanged:Connect(function()
@@ -32,4 +41,4 @@ game:GetService("GuiService").ErrorMessageChanged:Connect(function()
 end)
 
 -- 4. Thực hiện Kick để kích hoạt Rejoin
-player:Kick("Rejoining...")
+player:Kick("Rejoining to activate script...")
