@@ -70,7 +70,7 @@ end
 -- Tự động gọi Rejoin khi mất kết nối hoặc bị Kick
 GuiService.ErrorMessageChanged:Connect(function()
     if allowRejoin then
-        task.wait()
+        task.wait(0.1)
         RejoinLogic()
     end
 end)
