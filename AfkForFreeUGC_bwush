@@ -11,34 +11,55 @@ pcall(function()
     end
 end)
 
--- Đợi Game Load Xong 100%
+-- Đợi Game Load
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
--- Khai báo vị trí
-local targetPos = Vector3.new(741, 259, -329)
 local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+-- 1. TÍNH NĂNG MỚI: Văng game nếu server có từ 2 người trở lên
+local function CheckAndKickIfPeople()
+    if #Players:GetPlayers() >= 2 then
+        player:Kick("\n[BẢO MẬT]\nPhát hiện có người lạ trong server!\nĐã tự thoát để an toàn.")
+    end
+end
+CheckAndKickIfPeople()
+Players.PlayerAdded:Connect(CheckAndKickIfPeople)
+
+-- 2. Thực hiện Teleport đến vị trí chỉ định
+local targetPos = Vector3.new(741, 259, -329)
 local character = player.Character or player.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 
--- 1. Thực hiện Teleport
 hrp.CFrame = CFrame.new(targetPos)
 
--- 2. Kiểm tra xem đã đến đích chưa (Vòng lặp chờ check khoảng cách)
+-- Chờ ổn định vị trí
 repeat
-    task.wait(0.5)
-    hrp.CFrame = CFrame.new(targetPos) -- Force lại vị trí nếu bị trôi
+    task.wait()
+    hrp.CFrame = CFrame.new(targetPos)
 until (hrp.Position - targetPos).Magnitude < 5
 
--- Đợi thêm một chút cho dữ liệu ổn định
-task.wait(2)
+task.wait() -- Đợi thêm 2 giây cho chắc chắn
 
--- 3. Thiết lập tự động vào lại khi bị Kick (Rejoin)
+-- 3. Hàm Rejoin ưu tiên Server Riêng Tư
+local function RejoinLogic()
+    if game.PrivateServerId ~= "" then
+        -- Đây là lệnh quan trọng nhất để giữ bạn ở Server Riêng
+        TeleportService:TeleportToPrivateServer(game.PlaceId, game.PrivateServerId, {player})
+    else
+        -- Nếu không có server riêng thì vào server thường
+        TeleportService:Teleport(game.PlaceId, player)
+    end
+end
+
+-- Tự động gọi Rejoin khi bị Kick (Bao gồm cả lệnh Kick ở bước 4)
 game:GetService("GuiService").ErrorMessageChanged:Connect(function()
     task.wait()
-    game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+    RejoinLogic()
 end)
 
--- 4. Thực hiện Kick để kích hoạt Rejoin
-player:Kick("Rejoining to activate script...")
+-- 4. THỰC HIỆN KICK ĐỂ REJOIN (Như bạn yêu cầu)
+player:Kick("Đang Rejoin về Server Riêng để kích hoạt script...")
