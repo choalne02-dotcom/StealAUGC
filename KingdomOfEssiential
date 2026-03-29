@@ -77,7 +77,6 @@ d.MouseButton1Click:Connect(function()
     d.BackgroundColor3 = c and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
 end)
 
--- Biến kiểm tra trạng thái đủ tiền để điều chỉnh tốc độ collect
 local enoughMoney = false
 
 task.spawn(function()
@@ -100,7 +99,6 @@ task.spawn(function()
                         if not isLocked and tGui and tGui:FindFirstChild("Cost") then
                             local costValue = parse(tGui.Cost.Amount.Text)
                             
-                            -- SO SÁNH TIỀN
                             if currentCoins >= costValue then
                                 enoughMoney = true
                                 local p = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
@@ -121,18 +119,60 @@ end)
 
 task.spawn(function()
     while true do
-        -- Tốc độ chờ: 1 giây nếu thiếu tiền, 5 giây nếu đang bận mua tycoon
         local waitTime = (not enoughMoney) and 0.7 or 1
         task.wait(waitTime)
         
         if c then
             local t = g()
-            if t then
+            if t and U.Character then
+                -- Auto Collect Coin
                 local cd = t:FindFirstChild("P_Coindropper_1")
                 if cd then
                     local h = cd:FindFirstChild("HouseCoinDropper")
                     if h and h:FindFirstChild("Collider") then
                         tp(h.Collider.CFrame)
+                    end
+                end
+
+                -- Logic Tool và Fire Grid
+                local exclude = {["Shovel"] = true, ["Petal"] = true, ["Scythe"] = true}
+                local bp = U:FindFirstChild("Backpack")
+                
+                if bp then
+                    for _, tool in pairs(bp:GetChildren()) do
+                        -- Chỉ đổi nếu tay trống
+                        if tool:IsA("Tool") and not exclude[tool.Name] and not U.Character:FindFirstChildOfClass("Tool") then
+                            
+                            U.Character.Humanoid:EquipTool(tool)
+                            task.wait(0.2)
+                            
+                            local currentTool = U.Character:FindFirstChild(tool.Name)
+                            if currentTool then
+                                -- Quét Plot 1-6
+                                for n = 1, 6 do
+                                    local plot = t:FindFirstChild("P_Plot_"..n)
+                                    if plot then
+                                        for _, cell in pairs(plot:GetDescendants()) do
+                                            if cell.Name == "GridCell" then
+                                                -- Bỏ cái thứ 2, chỉ fire cái đầu tiên trong mỗi GridCell
+                                                local prompt = cell:FindFirstChildOfClass("ProximityPrompt")
+                                                if prompt then
+                                                    fireproximityprompt(prompt)
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                                
+                                -- Đợi dùng xong tool mới đổi tool khác
+                                local timeout = 0
+                                while U.Character:FindFirstChild(tool.Name) and timeout < 30 do
+                                    task.wait(0.1)
+                                    timeout = timeout + 1
+                                end
+                                if U.Character:FindFirstChild(tool.Name) then U.Character.Humanoid:UnequipTools() end
+                            end
+                        end
                     end
                 end
             end
