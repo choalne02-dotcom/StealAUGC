@@ -47,7 +47,6 @@ d.Text = "Auto Collect: ON"
 d.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
 d.Parent = m
 
--- NÚT INFINITE GEMS & SPIN
 local gOn = false
 local gBtn = Instance.new("TextButton")
 gBtn.Size = UDim2.new(1, -20, 0, 40)
@@ -96,6 +95,7 @@ end)
 
 local enoughMoney = false
 
+-- LOOP TYCOON: Khôi phục logic so sánh tiền chuẩn của bạn
 task.spawn(function()
     while task.wait(0.1) do
         if a then
@@ -107,15 +107,23 @@ task.spawn(function()
                 for _, v in pairs(t:GetChildren()) do
                     if v.Name:match("^Button_") and not v.Name:match("Upgrade") then
                         local tGui = v:FindFirstChild("TitleGui")
-                        local isLocked = (tGui and tGui:FindFirstChild("Lock") and tGui.Lock.Visible == true)
+                        local isLocked = false
+                        
+                        if tGui and tGui:FindFirstChild("Lock") and tGui.Lock.Visible == true then
+                            isLocked = true
+                        end
                         
                         if not isLocked and tGui and tGui:FindFirstChild("Cost") then
                             local costValue = parse(tGui.Cost.Amount.Text)
                             
+                            -- Logic so sánh tiền: Teleport nếu đủ, cập nhật enoughMoney
                             if currentCoins >= costValue then
                                 enoughMoney = true
                                 local p = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                                if p then tp(p.CFrame) break end
+                                if p then
+                                    tp(p.CFrame)
+                                    break
+                                end
                             else
                                 enoughMoney = false
                             end
@@ -127,6 +135,7 @@ task.spawn(function()
     end
 end)
 
+-- LOOP COLLECT & TOOL: Giữ nguyên waitTime 0.7/1 và logic Fire Grid bỏ qua cái thứ 2
 task.spawn(function()
     while true do
         local waitTime = (not enoughMoney) and 0.7 or 1
@@ -179,7 +188,7 @@ task.spawn(function()
     end
 end)
 
--- LOOP GEMS & SPIN (TỐC ĐỘ CAO - 50 LẦN MỖI 0s)
+-- LOOP GEMS & SPIN: Tốc độ cao 50 lần / 0s
 task.spawn(function()
     local GemEvent = RS:WaitForChild("RemoteEvents"):WaitForChild("RemoteCollectGem")
     local SpinInc = RS:WaitForChild("RemoteFunctions"):WaitForChild("IncrementSpinAvailable")
