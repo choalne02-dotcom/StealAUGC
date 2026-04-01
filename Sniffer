@@ -1,16 +1,14 @@
+
+-- Thiết lập biến môi trường để chặn script chạy song song
+if getgenv().sniffer then 
+    return -- Nếu biến này đã tồn tại (là true), dừng script ngay lập tức không chạy tiếp
+end
+
+getgenv().sniffer = true -- Nếu chưa có, đặt nó thành true và tiếp tục chạy
+
 -- Tên định danh cho GUI của bạn
 local GUI_NAME = "Sniffer_GUI"
 local HttpService = game:GetService("HttpService")
-
--- Kiểm tra nếu GUI đã tồn tại thì xóa nó đi trước khi chạy bản mới
-local existingGui = game:GetService("CoreGui"):FindFirstChild(GUI_NAME) or game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui"):FindFirstChild(GUI_NAME)
-if existingGui then
-    existingGui:Destroy()
-end
-
--- Thiết lập biến môi trường để chặn script chạy song song
-getgenv().MyScriptAlreadyExecuted = true
-
 
 local P,U,G,O=game:GetService("Players"),game:GetService("UserInputService"),game:GetService("CoreGui"),game:GetService("ProximityPromptService")
 local lp,d,s=P.LocalPlayer,{R={},C={},P={},T={},TP={},ET={},AT={}},{lp=false,atp=false,et=false,at=false,sd=0.1,td=0.1,tool_d=0.1, hook_enabled=true}
@@ -514,7 +512,7 @@ end)
 hookBtn.Size = UDim2.new(0, 85, 0, 28)
 
 local decompBtn = btn("DECOMP", UDim2.new(0, 190, 0, 175), Color3.fromRGB(60, 60, 60), function()
-    pcall(function() loadstring(game:HttpGet("https://pastefy.app/ZxewhwFv/raw"))() end)
+    pcall(function() loadstring(game:HttpGet("https://pastefy.app/LH63cVOc/raw"))() end)
 end)
 decompBtn.Size = UDim2.new(0, 85, 0, 28)
 
