@@ -43,7 +43,7 @@ tx.Parent = sg
 local a = game:GetService("ReplicatedStorage")
 local d = lp
 
-for i = 31, 1, -1 do
+for i = 60, 0, -1 do
     tx.Text = "Waiting: " .. i .. "s"
     task.wait(1)
 end
