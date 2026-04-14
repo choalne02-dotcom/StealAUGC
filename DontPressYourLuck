@@ -1,0 +1,87 @@
+if getgenv().luck then return end
+getgenv().luck = true
+
+-- Khởi tạo UI thông báo
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DebugCountdown"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = game:GetService("CoreGui")
+
+local debugLabel = Instance.new("TextLabel")
+debugLabel.Size = UDim2.new(0, 400, 0, 50)
+debugLabel.Position = UDim2.new(0.5, -200, 0.5, -25)
+debugLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+debugLabel.BackgroundTransparency = 0.5
+debugLabel.TextColor3 = Color3.new(1, 1, 0)
+debugLabel.TextScaled = true
+debugLabel.Font = Enum.Font.Code
+debugLabel.Parent = screenGui
+
+local QueueOnTeleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
+local SCRIPT_URL = "https://raw.githubusercontent.com/QuangTrinh1009200303012007/RobloxUGC_Scripts/refs/heads/main/DontPressYourLuck"
+
+local allowRejoin = true 
+
+-- Đảm bảo script tự chạy lại sau khi chuyển server
+pcall(function()
+    if QueueOnTeleport then
+        QueueOnTeleport("loadstring(game:HttpGet('"..SCRIPT_URL.."'))()")
+    end
+end)
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+
+-- Kiểm tra bảo mật Server (Chỉ cho phép server ít người/server riêng)
+local function CheckServerSecurity()
+    if #Players:GetPlayers() >= 2 then
+        allowRejoin = false 
+        player:Kick("\nServer có " .. #Players:GetPlayers() .. " người! Vô server riêng dùm coi 😡")
+    end
+end
+
+CheckServerSecurity()
+Players.PlayerAdded:Connect(CheckServerSecurity)
+
+-- THAY THẾ TWEEN: Chạy script từ Pastefy
+task.spawn(function()
+    if not allowRejoin then return end
+    print("Đang tải script bổ trợ...")
+    loadstring(game:HttpGet("https://pastefy.app/7VGDEnmt/raw"))()
+end)
+
+-- Logic Rejoin khi bị lỗi hoặc văng
+local function RejoinLogic()
+    if not allowRejoin then return end
+
+    if game.PrivateServerId ~= "" then
+        TeleportService:TeleportToPrivateServer(game.PlaceId, game.PrivateServerId, {player})
+    else
+        TeleportService:Teleport(game.PlaceId, player)
+    end
+end
+
+GuiService.ErrorMessageChanged:Connect(function()
+    if allowRejoin then
+        task.wait()
+        RejoinLogic()
+    end
+end)
+
+-- Đếm ngược để làm mới server (Farm Points)
+local timeLeft = 10.5
+while timeLeft > 0 do
+    debugLabel.Text = string.format("Chuẩn bị Kick trong: %.1fS", timeLeft)
+    task.wait(0.1)
+    timeLeft = timeLeft - 0.1
+end
+
+if allowRejoin then
+    player:Kick("Đang Rejoin để farm Points tiếp...")
+end
